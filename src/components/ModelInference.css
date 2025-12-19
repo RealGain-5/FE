@@ -8,13 +8,49 @@
   border: 1px solid #e2e8f0;
 }
 
+/* 헤더 행 (제목 + 모드 토글) */
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
 .section-title {
   font-size: 1.25rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* 모드 토글 버튼 */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.mode-btn {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--text-sub);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.mode-btn.active {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
 }
 
 .input-group {
@@ -85,6 +121,341 @@
 .btn-run-inference:disabled {
   background: #94a3b8;
   cursor: not-allowed;
+}
+
+/* 배치 모드: 파일 추가 버튼 */
+.btn-add-files {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1rem;
+  font-weight: 600;
+  background: white;
+  color: var(--primary);
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.btn-add-files:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.btn-add-files:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 배치 파일 목록 */
+.batch-file-list {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.file-list-header {
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+
+.file-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.file-item.pending {
+  border-left: 3px solid #94a3b8;
+}
+
+.file-item.running {
+  border-left: 3px solid var(--primary);
+  background: #eff6ff;
+}
+
+.file-item.completed {
+  border-left: 3px solid var(--status-normal);
+  background: #f0fdf4;
+}
+
+.file-item.failed {
+  border-left: 3px solid var(--status-abnormal);
+  background: #fef2f2;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.file-status-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.file-path {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.file-label {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.file-label.normal {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.file-label.abnormal {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* 파일 액션 버튼들 */
+.file-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.btn-retry {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+.btn-retry:hover:not(:disabled) {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.btn-retry:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-remove {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-remove:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.btn-remove:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 배치 진행률 */
+.batch-progress {
+  margin-bottom: 1rem;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: var(--text-sub);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.progress-bar-wrapper {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #60a5fa);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* 배치 액션 버튼 영역 */
+.batch-action-buttons {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.batch-action-buttons .btn-run-inference {
+  flex: 1;
+}
+
+.btn-cancel {
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-cancel:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* 내보내기 버튼 */
+.export-buttons {
+  display: flex;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.btn-export {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: white;
+  color: var(--text-main);
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-export:hover {
+  background: #f8fafc;
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+/* 배치 결과 아코디언 */
+.batch-results {
+  margin-top: 2rem;
+}
+
+.results-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-main);
+}
+
+.result-accordion {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.accordion-header {
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  transition: background 0.2s;
+  list-style: none;
+}
+
+.accordion-header:hover {
+  background: #f1f5f9;
+}
+
+.accordion-header::marker {
+  display: none;
+}
+
+.accordion-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.accordion-label {
+  padding: 0.25rem 0.6rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.accordion-label.normal {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.accordion-label.abnormal {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.accordion-error {
+  color: var(--status-abnormal);
+  font-size: 0.85rem;
+}
+
+.accordion-content {
+  padding: 1.5rem;
+}
+
+.error-box {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 1rem;
+  border-radius: 6px;
+  border: 1px solid #fca5a5;
+  margin-bottom: 1rem;
 }
 
 /* === 결과 영역 === */
@@ -250,4 +621,110 @@
 }
 .prob-fill.abnormal {
   background: var(--status-abnormal);
+}
+
+/* === 🆕 병렬 처리 UI 스타일 === */
+
+/* 배치 컨트롤 행 (파일 추가 + 병렬 수준 선택) */
+.batch-controls-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.batch-controls-row .btn-add-files {
+  flex: 1;
+  margin-bottom: 0; /* 기존 margin-bottom 제거 */
+}
+
+/* 병렬 처리 수준 선택 */
+.concurrency-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.6rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.concurrency-selector label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.concurrency-select {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 130px;
+}
+
+.concurrency-select:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: white;
+}
+
+.concurrency-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.concurrency-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* 현재 실행 중인 파일 표시 */
+.running-files-section {
+  margin-top: 1rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+}
+
+.running-files-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.running-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.running-file-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: #1e40af;
+  background: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  border-left: 3px solid var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.running-file-item::before {
+  content: '▸';
+  color: var(--primary);
+  font-weight: bold;
 }

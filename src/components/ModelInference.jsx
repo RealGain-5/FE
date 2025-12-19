@@ -13,6 +13,7 @@ function RCPCard({ rcp, data, visualization }) {
     { id: 'timeline', label: '타임라인' }
   ]
 
+  // [수정된 부분] 이미지 경로 처리 함수
   const getImagePath = () => {
     if (!visualization) return null
 
@@ -27,10 +28,14 @@ function RCPCard({ rcp, data, visualization }) {
       path = visualization.temporal[timelineIndex]
     }
 
-    // Windows 경로를 URL로 변환
-    // C:\Users\... -> file:///C:/Users/...
+    if (!path) return null
+
+    // Windows 역슬래시(\)를 슬래시(/)로 변경
     const normalizedPath = path.replace(/\\/g, '/')
-    const fileUrl = `file:///${normalizedPath}`
+
+    // [중요] file:// 대신 media:// 프로토콜 사용
+    // 메인 프로세스에서 이 프로토콜을 가로채서 로컬 파일을 서빙합니다.
+    const fileUrl = `media://${normalizedPath}`
 
     console.log('[RCPCard] Image path:', path)
     console.log('[RCPCard] File URL:', fileUrl)
@@ -117,10 +122,47 @@ function RCPCard({ rcp, data, visualization }) {
 
 // 메인 컴포넌트
 export function ModelInference() {
+  // 모드 전환
+  const [mode, setMode] = useState('single') // 'single' | 'batch'
+
+  // 단일 파일 모드 상태
   const [binPath, setBinPath] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+
+  // 배치 모드 상태
+  const [batchFiles, setBatchFiles] = useState([]) // [{ path, status, result, error }]
+  const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, failed: 0, running: [], runningCount: 0 })
+  const [batchLoading, setBatchLoading] = useState(false)
+  const [concurrencyLevel, setConcurrencyLevel] = useState(2)  // 🆕 병렬 처리 수준 (기본값: 2)
+
+  // 🆕 병렬 처리 수준 변경 핸들러
+  const handleConcurrencyChange = async (e) => {
+    const level = parseInt(e.target.value)
+    
+    // 레벨 4에 대한 경고
+    if (level === 4) {
+      const confirmed = window.confirm(
+        '⚠️ 병렬 처리 수준 4는 시스템 리소스를 많이 사용합니다.\n' +
+        'CPU 사용률이 높아지고 메모리 부하가 증가할 수 있습니다.\n\n' +
+        '계속하시겠습니까?'
+      )
+      if (!confirmed) {
+        return // 사용자가 취소한 경우 변경 안함
+      }
+    }
+    
+    setConcurrencyLevel(level)
+    
+    try {
+      await window.api.setConcurrencyLevel(level)
+      console.log(`[ModelInference] Concurrency level set to ${level}`)
+    } catch (err) {
+      console.error('[ModelInference] Failed to set concurrency level:', err)
+      alert(`병렬 처리 수준 설정 실패: ${err.message}`)
+    }
+  }
 
   const handleSelectFile = async () => {
     try {
@@ -166,27 +208,416 @@ export function ModelInference() {
     }
   }
 
+  // === 배치 모드 핸들러 ===
+  const handleAddBatchFiles = async () => {
+    try {
+      const paths = await window.api.selectBinFiles()
+      if (paths && paths.length > 0) {
+        // 중복 제거
+        const existingPaths = new Set(batchFiles.map((f) => f.path))
+        const newPaths = paths.filter((p) => !existingPaths.has(p))
+
+        if (newPaths.length > 0) {
+          setBatchFiles((prev) => [
+            ...prev,
+            ...newPaths.map((path) => ({
+              path,
+              status: 'pending', // pending, running, completed, failed
+              result: null,
+              error: null
+            }))
+          ])
+        }
+
+        if (newPaths.length < paths.length) {
+          alert(`${paths.length - newPaths.length}개의 중복 파일이 제외되었습니다.`)
+        }
+      }
+    } catch (err) {
+      setError(`파일 선택 오류: ${err.message}`)
+    }
+  }
+
+  const handleRemoveBatchFile = (path) => {
+    setBatchFiles((prev) => prev.filter((f) => f.path !== path))
+  }
+
+  const handleRunBatchInference = async () => {
+    if (batchFiles.length === 0) {
+      setError('먼저 분석할 파일을 추가해주세요.')
+      return
+    }
+
+    setBatchLoading(true)
+    setError(null)
+
+    // 🆕 모든 파일 상태를 pending으로 초기화
+    setBatchFiles((prev) =>
+      prev.map((f) => ({ ...f, status: 'pending', result: null, error: null }))
+    )
+
+    // 🆕 진행 상황 리스너 등록 (Incremental Update)
+    window.api.onBatchProgress((progress) => {
+      console.log('[BatchInference] Progress:', progress)
+      setBatchProgress(progress)
+
+      // 🆕 현재 실행 중인 파일들 상태 업데이트
+      if (progress.running && progress.running.length > 0) {
+        setBatchFiles((prev) =>
+          prev.map((f) => {
+            if (progress.running.includes(f.path)) {
+              return { ...f, status: 'running' }
+            }
+            return f
+          })
+        )
+      }
+
+      // 🆕 완료된 결과 즉시 반영 (Incremental Update)
+      if (progress.result && progress.current) {
+        setBatchFiles((prev) =>
+          prev.map((f) =>
+            f.path === progress.current
+              ? { ...f, status: 'completed', result: progress.result }
+              : f
+          )
+        )
+      }
+
+      // 🆕 실패 즉시 반영 (Incremental Update)
+      if (progress.error && progress.current) {
+        setBatchFiles((prev) =>
+          prev.map((f) =>
+            f.path === progress.current
+              ? { ...f, status: 'failed', error: progress.error }
+              : f
+          )
+        )
+      }
+    })
+
+    try {
+      const paths = batchFiles.map((f) => f.path)
+      const response = await window.api.runBatchInference(paths)
+
+      if (response.success) {
+        console.log('[BatchInference] Batch completed:', response.summary)
+        await window.api.saveLog('BATCH_INFERENCE', `배치 분석 완료: ${paths.length}개 파일 (성공: ${response.summary.completed}, 실패: ${response.summary.failed})`)
+      } else {
+        setError(response.error)
+      }
+    } catch (err) {
+      setError(`배치 추론 오류: ${err.message}`)
+    } finally {
+      setBatchLoading(false)
+      window.api.offBatchProgress()
+    }
+  }
+
+  // 배치 취소
+  const handleCancelBatchInference = async () => {
+    if (!window.confirm('진행 중인 분석을 취소하시겠습니까?')) {
+      return
+    }
+
+    try {
+      await window.api.cancelBatchInference()
+      setBatchLoading(false)
+      window.api.offBatchProgress()
+      alert('분석이 취소되었습니다.')
+    } catch (err) {
+      console.error('Cancel error:', err)
+    }
+  }
+
+  // 개별 파일 재분석
+  const handleRetryFile = async (filePath) => {
+    setBatchFiles((prev) =>
+      prev.map((f) => (f.path === filePath ? { ...f, status: 'running', error: null } : f))
+    )
+
+    try {
+      const response = await window.api.runInference(filePath)
+
+      if (response.success) {
+        setBatchFiles((prev) =>
+          prev.map((f) =>
+            f.path === filePath ? { ...f, status: 'completed', result: response.data } : f
+          )
+        )
+      } else {
+        setBatchFiles((prev) =>
+          prev.map((f) =>
+            f.path === filePath ? { ...f, status: 'failed', error: response.error } : f
+          )
+        )
+      }
+    } catch (err) {
+      setBatchFiles((prev) =>
+        prev.map((f) =>
+          f.path === filePath ? { ...f, status: 'failed', error: err.message } : f
+        )
+      )
+    }
+  }
+
+  // JSON 내보내기
+  const handleExportJson = async () => {
+    const completedFiles = batchFiles.filter((f) => f.status === 'completed')
+    if (completedFiles.length === 0) {
+      alert('내보낼 결과가 없습니다.')
+      return
+    }
+
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      totalFiles: batchFiles.length,
+      completed: completedFiles.length,
+      failed: batchFiles.filter((f) => f.status === 'failed').length,
+      results: completedFiles.map((f) => ({
+        filePath: f.path,
+        fileName: f.path.split(/[/\\]/).pop(),
+        finalLabel: f.result.final_label,
+        rcpResults: f.result.results,
+        visualization: f.result.visualization
+      }))
+    }
+
+    try {
+      const response = await window.api.exportResultsJson(exportData)
+      if (response.success) {
+        alert(`JSON 파일이 저장되었습니다.\n${response.filePath}`)
+      } else if (!response.cancelled) {
+        alert(`내보내기 실패: ${response.error}`)
+      }
+    } catch (err) {
+      alert(`내보내기 오류: ${err.message}`)
+    }
+  }
+
+  // CSV 내보내기
+  const handleExportCsv = async () => {
+    const exportData = batchFiles.map((f) => ({
+      path: f.path,
+      status: f.status,
+      result: f.result,
+      error: f.error
+    }))
+
+    try {
+      const response = await window.api.exportResultsCsv(exportData)
+      if (response.success) {
+        alert(`CSV 파일이 저장되었습니다.\n${response.filePath}`)
+      } else if (!response.cancelled) {
+        alert(`내보내기 실패: ${response.error}`)
+      }
+    } catch (err) {
+      alert(`내보내기 오류: ${err.message}`)
+    }
+  }
+
+  // Excel 내보내기 (이미지 포함)
+  const handleExportExcel = async () => {
+    const exportData = batchFiles.map((f) => ({
+      path: f.path,
+      status: f.status,
+      result: f.result,
+      error: f.error
+    }))
+
+    try {
+      const response = await window.api.exportResultsExcel(exportData)
+      if (response.success) {
+        alert(`Excel 파일이 저장되었습니다.\n${response.filePath}`)
+      } else if (!response.cancelled) {
+        alert(`내보내기 실패: ${response.error}`)
+      }
+    } catch (err) {
+      alert(`내보내기 오류: ${err.message}`)
+    }
+  }
+
   return (
     <div className="model-inference">
       <div className="control-panel">
-        <h2 className="section-title">🔬 Orbit 이상 탐지 분석</h2>
-
-        <div className="input-group">
-          <div className="file-picker-wrapper">
-            <button onClick={handleSelectFile} className="btn-file-select" disabled={loading}>
-              📂 파일 찾기
+        <div className="header-row">
+          <h2 className="section-title">🔬 Orbit 이상 탐지 분석</h2>
+          <div className="mode-toggle">
+            <button
+              className={`mode-btn ${mode === 'single' ? 'active' : ''}`}
+              onClick={() => setMode('single')}
+            >
+              단일 파일
             </button>
-            <span className="file-path-text">{binPath || '분석할 .bin 파일을 선택해주세요.'}</span>
+            <button
+              className={`mode-btn ${mode === 'batch' ? 'active' : ''}`}
+              onClick={() => setMode('batch')}
+            >
+              배치 처리
+            </button>
           </div>
         </div>
 
-        <button
-          onClick={handleRunInference}
-          disabled={!binPath || loading}
-          className="btn-run-inference"
-        >
-          {loading ? '⏳ 분석 진행 중...' : '🚀 분석 시작'}
-        </button>
+        {mode === 'single' ? (
+          <>
+            <div className="input-group">
+              <div className="file-picker-wrapper">
+                <button onClick={handleSelectFile} className="btn-file-select" disabled={loading}>
+                  📂 파일 찾기
+                </button>
+                <span className="file-path-text">
+                  {binPath || '분석할 .bin 파일을 선택해주세요.'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRunInference}
+              disabled={!binPath || loading}
+              className="btn-run-inference"
+            >
+              {loading ? '⏳ 분석 진행 중...' : '🚀 분석 시작'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="batch-controls-row">
+              <button onClick={handleAddBatchFiles} className="btn-add-files" disabled={batchLoading}>
+                📂 파일 추가 (다중 선택)
+              </button>
+              
+              {/* 🆕 병렬 처리 수준 선택 */}
+              <div className="concurrency-selector">
+                <label htmlFor="concurrency-level">병렬 처리 수준:</label>
+                <select
+                  id="concurrency-level"
+                  value={concurrencyLevel}
+                  onChange={handleConcurrencyChange}
+                  disabled={batchLoading}
+                  className="concurrency-select"
+                >
+                  <option value={1}>1 (순차 처리)</option>
+                  <option value={2}>2 (권장)</option>
+                  <option value={3}>3</option>
+                  <option value={4}>4 (고부하)</option>
+                </select>
+              </div>
+            </div>
+
+            {batchFiles.length > 0 && (
+              <div className="batch-file-list">
+                <div className="file-list-header">
+                  선택된 파일 ({batchFiles.length}개)
+                </div>
+                <div className="file-items">
+                  {batchFiles.map((file) => (
+                    <div key={file.path} className={`file-item ${file.status}`}>
+                      <div className="file-info">
+                        <span className="file-status-icon">
+                          {file.status === 'pending' && '⏸'}
+                          {file.status === 'running' && '⏳'}
+                          {file.status === 'completed' && '✓'}
+                          {file.status === 'failed' && '✗'}
+                        </span>
+                        <span className="file-path" title={file.path}>
+                          {file.path.split(/[/\\]/).pop()}
+                        </span>
+                        {file.result && (
+                          <span className={`file-label ${file.result.final_label}`}>
+                            {file.result.final_label.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="file-actions">
+                        {file.status === 'failed' && (
+                          <button
+                            className="btn-retry"
+                            onClick={() => handleRetryFile(file.path)}
+                            disabled={batchLoading}
+                            title="재분석"
+                          >
+                            ↻
+                          </button>
+                        )}
+                        <button
+                          className="btn-remove"
+                          onClick={() => handleRemoveBatchFile(file.path)}
+                          disabled={batchLoading}
+                          title="제거"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {batchFiles.length > 0 && (
+              <div className="batch-progress">
+                <div className="progress-text">
+                  전체 진행률: {batchProgress.completed}/{batchProgress.total}
+                  {batchProgress.failed > 0 && ` (실패: ${batchProgress.failed})`}
+                </div>
+                <div className="progress-bar-wrapper">
+                  <div
+                    className="progress-bar-fill"
+                    style={{
+                      width: `${(batchProgress.completed / batchProgress.total) * 100}%`
+                    }}
+                  />
+                </div>
+                
+                {/* 🆕 현재 실행 중인 파일 표시 */}
+                {batchLoading && batchProgress.runningCount > 0 && (
+                  <div className="running-files-section">
+                    <div className="running-files-header">
+                      ⏳ 현재 분석 중 ({batchProgress.runningCount}개):
+                    </div>
+                    <div className="running-files-list">
+                      {batchProgress.running.map((filePath) => (
+                        <div key={filePath} className="running-file-item">
+                          {filePath.split(/[/\\]/).pop()}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="batch-action-buttons">
+              <button
+                onClick={handleRunBatchInference}
+                disabled={batchFiles.length === 0 || batchLoading}
+                className="btn-run-inference"
+              >
+                {batchLoading ? '⏳ 배치 분석 진행 중...' : '🚀 전체 분석 시작'}
+              </button>
+
+              {batchLoading && (
+                <button onClick={handleCancelBatchInference} className="btn-cancel">
+                  ⏹ 취소
+                </button>
+              )}
+            </div>
+
+            {batchFiles.some((f) => f.status === 'completed') && (
+              <div className="export-buttons">
+                <button onClick={handleExportJson} className="btn-export">
+                  📄 JSON 내보내기
+                </button>
+                <button onClick={handleExportCsv} className="btn-export">
+                  📊 CSV 내보내기
+                </button>
+                <button onClick={handleExportExcel} className="btn-export">
+                  📊 Excel 내보내기 (이미지 포함)
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {error && (
@@ -204,7 +635,7 @@ export function ModelInference() {
         </div>
       )}
 
-      {result && (
+      {mode === 'single' && result && (
         <div className="result-container">
           <div className={`result-overview ${result.final_label}`}>
             <span className="verdict-label">최종 분석 판정</span>
@@ -221,6 +652,60 @@ export function ModelInference() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {mode === 'batch' && batchFiles.some((f) => f.status === 'completed' || f.status === 'failed') && (
+        <div className="batch-results">
+          <h3 className="results-title">분석 결과</h3>
+          {batchFiles.map((file) => {
+            if (file.status !== 'completed' && file.status !== 'failed') return null
+
+            return (
+              <details key={file.path} className="result-accordion" open>
+                <summary className={`accordion-header ${file.status}`}>
+                  <span className="accordion-title">
+                    {file.status === 'completed' && '✓'}
+                    {file.status === 'failed' && '✗'}
+                    {' '}
+                    {file.path.split(/[/\\]/).pop()}
+                  </span>
+                  {file.result && (
+                    <span className={`accordion-label ${file.result.final_label}`}>
+                      {file.result.final_label.toUpperCase()}
+                    </span>
+                  )}
+                  {file.error && <span className="accordion-error">실패</span>}
+                </summary>
+
+                <div className="accordion-content">
+                  {file.status === 'failed' && (
+                    <div className="error-box">⚠️ {file.error}</div>
+                  )}
+
+                  {file.status === 'completed' && file.result && (
+                    <>
+                      <div className={`result-overview ${file.result.final_label}`}>
+                        <span className="verdict-label">최종 분석 판정</span>
+                        <span className="verdict-value">{file.result.final_label.toUpperCase()}</span>
+                      </div>
+
+                      <div className="rcp-grid">
+                        {Object.entries(file.result.results).map(([rcp, data]) => (
+                          <RCPCard
+                            key={rcp}
+                            rcp={rcp}
+                            data={data}
+                            visualization={file.result.visualization?.[rcp]}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </details>
+            )
+          })}
         </div>
       )}
     </div>
