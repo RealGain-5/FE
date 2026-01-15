@@ -7,6 +7,8 @@ function App() {
   const [user, setUser] = useState(null)
 
   // 로그인/회원가입 모드 전환 (true: 로그인, false: 회원가입)
+  // => error 여전히 발생 중, 상태 관리가 꼬인 것으로 생각됨
+  // state말고 다른 방식으로 해결하기 react 자체의 문제?
   const [isLoginMode, setIsLoginMode] = useState(true)
 
   const [id, setId] = useState('')
@@ -67,6 +69,7 @@ function App() {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <input
+              key={`id-${isLoginMode}`}
               className="input-field"
               type="text"
               placeholder="아이디를 입력하세요"
@@ -75,6 +78,7 @@ function App() {
               autoComplete="username"
             />
             <input
+              key={`pw-${isLoginMode}`}
               className="input-field"
               type="password"
               placeholder="비밀번호를 입력하세요"
