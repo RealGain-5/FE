@@ -77,6 +77,10 @@
   font-weight: 600;
   cursor: pointer;
   margin-left: 0.5rem;
+  background: none;
+  border: none;
+  font-size: inherit;
+  padding: 0;
 }
 .auth-link:hover {
   text-decoration: underline;
@@ -84,6 +88,13 @@
 
 .auth-error {
   color: var(--status-abnormal);
+  font-size: 0.9rem;
+  margin: 0;
+  text-align: left;
+}
+
+.auth-success {
+  color: var(--status-normal);
   font-size: 0.9rem;
   margin: 0;
   text-align: left;

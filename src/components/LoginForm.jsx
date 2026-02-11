@@ -5,34 +5,44 @@ export function LoginForm({ onLoginSuccess }) {
   const [id, setId] = useState('')
   const [pw, setPw] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMsg('')
+    setSuccessMsg('')
 
     if (!id || !pw) {
       setErrorMsg('아이디와 비밀번호를 입력하세요.')
       return
     }
 
-    if (isLoginMode) {
-      const result = await window.api.login(id, pw)
-      if (result.success) {
-        await window.api.saveLog('LOGIN', `User ${id} logged in`)
-        onLoginSuccess({ username: result.username })
+    setIsSubmitting(true)
+
+    try {
+      if (isLoginMode) {
+        const result = await window.api.login(id, pw)
+        if (result.success) {
+          window.api.saveLog('LOGIN', `User ${id} logged in`).catch(() => {})
+          onLoginSuccess({ username: result.username })
+        } else {
+          setErrorMsg(result.message)
+        }
       } else {
-        setErrorMsg(result.message)
+        const result = await window.api.register(id, pw)
+        if (result.success) {
+          setSuccessMsg(result.message)
+          setIsLoginMode(true)
+          setPw('')
+        } else {
+          setErrorMsg(result.message)
+        }
       }
-    } else {
-      const result = await window.api.register(id, pw)
-      if (result.success) {
-        setErrorMsg('')
-        setIsLoginMode(true)
-        // 회원가입 성공 시 비밀번호만 초기화, 아이디는 유지
-        setPw('')
-      } else {
-        setErrorMsg(result.message)
-      }
+    } catch {
+      setErrorMsg('서버 연결 오류가 발생했습니다.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -41,6 +51,7 @@ export function LoginForm({ onLoginSuccess }) {
     setId('')
     setPw('')
     setErrorMsg('')
+    setSuccessMsg('')
   }
 
   return (
@@ -57,6 +68,7 @@ export function LoginForm({ onLoginSuccess }) {
             placeholder="아이디를 입력하세요"
             value={id}
             onChange={(e) => setId(e.target.value)}
+            disabled={isSubmitting}
             autoComplete="username"
           />
           <input
@@ -65,21 +77,27 @@ export function LoginForm({ onLoginSuccess }) {
             placeholder="비밀번호를 입력하세요"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
+            disabled={isSubmitting}
             autoComplete="current-password"
           />
 
+          {successMsg && <p className="auth-success">{successMsg}</p>}
           {errorMsg && <p className="auth-error">{errorMsg}</p>}
 
-          <button type="submit" className="btn-primary">
-            {isLoginMode ? '로그인' : '가입하기'}
+          <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            {isSubmitting
+              ? '처리 중...'
+              : isLoginMode
+                ? '로그인'
+                : '가입하기'}
           </button>
         </form>
 
         <div className="auth-toggle">
           {isLoginMode ? '계정이 없으신가요?' : '이미 계정이 있으신가요?'}
-          <span onClick={toggleMode} className="auth-link">
+          <button type="button" onClick={toggleMode} className="auth-link">
             {isLoginMode ? '회원가입' : '로그인'}
-          </span>
+          </button>
         </div>
       </div>
     </div>

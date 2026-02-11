@@ -213,21 +213,20 @@ export function ModelInference() {
     try {
       const paths = await window.api.selectBinFiles()
       if (paths && paths.length > 0) {
-        // 중복 제거
-        const existingPaths = new Set(batchFiles.map((f) => f.path))
+        // 아직 분석 대기 중인 파일만 유지, 완료/실패 파일은 제거
+        const pendingFiles = batchFiles.filter((f) => f.status === 'pending')
+        const existingPaths = new Set(pendingFiles.map((f) => f.path))
         const newPaths = paths.filter((p) => !existingPaths.has(p))
 
-        if (newPaths.length > 0) {
-          setBatchFiles((prev) => [
-            ...prev,
-            ...newPaths.map((path) => ({
-              path,
-              status: 'pending', // pending, running, completed, failed
-              result: null,
-              error: null
-            }))
-          ])
-        }
+        const newFiles = newPaths.map((path) => ({
+          path,
+          status: 'pending',
+          result: null,
+          error: null
+        }))
+
+        setBatchFiles([...pendingFiles, ...newFiles])
+        setBatchProgress({ total: 0, completed: 0, failed: 0, running: [], runningCount: 0 })
 
         if (newPaths.length < paths.length) {
           alert(`${paths.length - newPaths.length}개의 중복 파일이 제외되었습니다.`)
