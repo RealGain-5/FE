@@ -5,6 +5,9 @@ import './ModelInference.css'
 function RCPCard({ rcp, data, visualization }) {
   const [activeTab, setActiveTab] = useState('orbit')
   const [timelineIndex, setTimelineIndex] = useState(9) // 기본 sec9
+  const [showModelDetail, setShowModelDetail] = useState(false)
+
+  const hasEnsemble = !!(data.model_predictions)
 
   const tabs = [
     { id: 'orbit', label: '궤도' },
@@ -47,7 +50,16 @@ function RCPCard({ rcp, data, visualization }) {
     <div className="rcp-card">
       <div className="card-header">
         <span className="card-title">{rcp}</span>
-        <span className={`status-badge ${data.prediction}`}>{data.prediction}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {hasEnsemble && (
+            <span style={{
+              fontSize: '0.65rem', fontWeight: 600, padding: '1px 6px',
+              borderRadius: '4px', background: '#7c3aed', color: '#fff',
+              letterSpacing: '0.03em'
+            }}>앙상블</span>
+          )}
+          <span className={`status-badge ${data.prediction}`}>{data.prediction}</span>
+        </div>
       </div>
 
       <div className="tab-container">
@@ -116,6 +128,61 @@ function RCPCard({ rcp, data, visualization }) {
           </div>
         ))}
       </div>
+
+      {/* 앙상블 개별 모델 결과 */}
+      {hasEnsemble && (
+        <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '8px', paddingTop: '6px' }}>
+          <button
+            onClick={() => setShowModelDetail((v) => !v)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '0.72rem', color: '#64748b', padding: '2px 0',
+              display: 'flex', alignItems: 'center', gap: '4px', width: '100%'
+            }}
+          >
+            <span style={{ fontSize: '0.65rem' }}>{showModelDetail ? '▲' : '▼'}</span>
+            개별 모델 예측
+          </button>
+          {showModelDetail && (
+            <table style={{ width: '100%', fontSize: '0.72rem', borderCollapse: 'collapse', marginTop: '4px' }}>
+              <thead>
+                <tr style={{ color: '#94a3b8' }}>
+                  <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>모델</th>
+                  <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>판정</th>
+                  <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 500 }}>normal</th>
+                  <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 500 }}>abnormal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { key: 'resnet', label: 'ResNet' },
+                  { key: 'cnn1d',  label: '1D CNN' },
+                ].map(({ key, label }) => {
+                  const mp = data.model_predictions[key]
+                  if (!mp) return null
+                  return (
+                    <tr key={key} style={{ borderTop: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '2px 4px', color: '#475569' }}>{label}</td>
+                      <td style={{ padding: '2px 4px' }}>
+                        <span style={{
+                          fontWeight: 600,
+                          color: mp.prediction === 'abnormal' ? '#dc2626' : '#16a34a'
+                        }}>{mp.prediction}</span>
+                      </td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#64748b' }}>
+                        {((mp.probabilities.normal ?? 0) * 100).toFixed(1)}%
+                      </td>
+                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#64748b' }}>
+                        {((mp.probabilities.abnormal ?? 0) * 100).toFixed(1)}%
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
     </div>
   )
 }
