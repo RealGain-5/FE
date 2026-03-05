@@ -6,17 +6,17 @@ function RCPCard({ rcp, data, visualization }) {
   const [activeTab, setActiveTab] = useState('orbit')
   const [timelineIndex, setTimelineIndex] = useState(9) // 기본 sec9
   const [showModelDetail, setShowModelDetail] = useState(false)
-
   const hasEnsemble = !!(data.model_predictions)
 
   const tabs = [
     { id: 'orbit', label: '궤도' },
     { id: 'heatmap', label: 'Grad-CAM' },
     { id: 'overlay', label: '오버레이' },
+    { id: 'ig', label: 'IG' },
     { id: 'timeline', label: '타임라인' }
   ]
 
-  // [수정된 부분] 이미지 경로 처리 함수
+  // 이미지 경로 처리 함수
   const getImagePath = () => {
     if (!visualization) return null
 
@@ -27,6 +27,8 @@ function RCPCard({ rcp, data, visualization }) {
       path = visualization.gradcam.heatmap
     } else if (activeTab === 'overlay') {
       path = visualization.gradcam.overlay
+    } else if (activeTab === 'ig') {
+      path = visualization.ig?.resnet_overlay
     } else if (activeTab === 'timeline') {
       path = visualization.temporal[timelineIndex]
     }
@@ -37,7 +39,6 @@ function RCPCard({ rcp, data, visualization }) {
     const normalizedPath = path.replace(/\\/g, '/')
 
     // [중요] file:// 대신 media:// 프로토콜 사용
-    // 메인 프로세스에서 이 프로토콜을 가로채서 로컬 파일을 서빙합니다.
     const fileUrl = `media://${normalizedPath}`
 
     console.log('[RCPCard] Image path:', path)
@@ -80,7 +81,13 @@ function RCPCard({ rcp, data, visualization }) {
       <div className="visualization-area">
         {visualization ? (
           <>
-            <img src={getImagePath()} alt="Vis" className="vis-image" />
+            {activeTab === 'ig' && !visualization?.ig?.resnet_overlay ? (
+              <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                IG 데이터 없음 (비다중스케일 모델 또는 IG 비활성화)
+              </div>
+            ) : (
+              <img src={getImagePath()} alt="Vis" className="vis-image" />
+            )}
             {/* 타임라인 슬라이더 (오버레이 스타일) */}
             {activeTab === 'timeline' && (
               <div
@@ -111,7 +118,7 @@ function RCPCard({ rcp, data, visualization }) {
             )}
           </>
         ) : (
-          <div style={{ color: '#64748b', fontSize: '0.9rem' }}>시각화 준비 중</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>시각화 준비 중</div>
         )}
       </div>
 
@@ -131,56 +138,63 @@ function RCPCard({ rcp, data, visualization }) {
 
       {/* 앙상블 개별 모델 결과 */}
       {hasEnsemble && (
-        <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '8px', paddingTop: '6px' }}>
+        <div style={{ borderTop: '1px solid var(--border)', marginTop: '8px', paddingTop: '6px' }}>
           <button
             onClick={() => setShowModelDetail((v) => !v)}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '0.72rem', color: '#64748b', padding: '2px 0',
+              fontSize: '0.72rem', color: 'var(--text-muted)', padding: '2px 0',
               display: 'flex', alignItems: 'center', gap: '4px', width: '100%'
             }}
           >
             <span style={{ fontSize: '0.65rem' }}>{showModelDetail ? '▲' : '▼'}</span>
             개별 모델 예측
           </button>
-          {showModelDetail && (
-            <table style={{ width: '100%', fontSize: '0.72rem', borderCollapse: 'collapse', marginTop: '4px' }}>
-              <thead>
-                <tr style={{ color: '#94a3b8' }}>
-                  <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>모델</th>
-                  <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>판정</th>
-                  <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 500 }}>normal</th>
-                  <th style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 500 }}>abnormal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { key: 'resnet', label: 'ResNet' },
-                  { key: 'cnn1d',  label: '1D CNN' },
-                ].map(({ key, label }) => {
-                  const mp = data.model_predictions[key]
-                  if (!mp) return null
-                  return (
-                    <tr key={key} style={{ borderTop: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '2px 4px', color: '#475569' }}>{label}</td>
-                      <td style={{ padding: '2px 4px' }}>
-                        <span style={{
-                          fontWeight: 600,
-                          color: mp.prediction === 'abnormal' ? '#dc2626' : '#16a34a'
-                        }}>{mp.prediction}</span>
-                      </td>
-                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#64748b' }}>
-                        {((mp.probabilities.normal ?? 0) * 100).toFixed(1)}%
-                      </td>
-                      <td style={{ padding: '2px 4px', textAlign: 'right', color: '#64748b' }}>
-                        {((mp.probabilities.abnormal ?? 0) * 100).toFixed(1)}%
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
+          {showModelDetail && (() => {
+            // 클래스 목록을 첫 번째 사용 가능한 모델에서 동적으로 추출
+            const firstMp = data.model_predictions?.resnet ?? data.model_predictions?.cnn1d
+            const classKeys = firstMp ? Object.keys(firstMp.probabilities) : ['normal']
+            return (
+              <table style={{ width: '100%', fontSize: '0.72rem', borderCollapse: 'collapse', marginTop: '4px' }}>
+                <thead>
+                  <tr style={{ color: 'var(--text-secondary)' }}>
+                    <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>모델</th>
+                    <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>판정</th>
+                    {classKeys.map((cls) => (
+                      <th key={cls} style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 500 }}>
+                        {cls}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { key: 'resnet', label: 'ResNet' },
+                    { key: 'cnn1d',  label: '1D CNN' },
+                  ].map(({ key, label }) => {
+                    const mp = data.model_predictions[key]
+                    if (!mp) return null
+                    return (
+                      <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '2px 4px', color: 'var(--text-secondary)' }}>{label}</td>
+                        <td style={{ padding: '2px 4px' }}>
+                          <span style={{
+                            fontWeight: 600,
+                            color: mp.prediction === 'normal' ? 'var(--status-normal)' : 'var(--status-anomaly)'
+                          }}>{mp.prediction}</span>
+                        </td>
+                        {classKeys.map((cls) => (
+                          <td key={cls} style={{ padding: '2px 4px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                            {((mp.probabilities[cls] ?? 0) * 100).toFixed(1)}%
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )
+          })()}
         </div>
       )}
     </div>
@@ -507,7 +521,7 @@ export function ModelInference() {
     <div className="model-inference">
       <div className="control-panel">
         <div className="header-row">
-          <h2 className="section-title">🔬 Orbit 이상 탐지 분석</h2>
+          <h2 className="section-title">Orbit 이상 탐지</h2>
           <div className="mode-toggle">
             <button
               className={`mode-btn ${mode === 'single' ? 'active' : ''}`}
@@ -529,7 +543,7 @@ export function ModelInference() {
             <div className="input-group">
               <div className="file-picker-wrapper">
                 <button onClick={handleSelectFile} className="btn-file-select" disabled={loading}>
-                  📂 파일 찾기
+                  파일 선택
                 </button>
                 <span className="file-path-text">
                   {binPath || '분석할 .bin 파일을 선택해주세요.'}
@@ -542,14 +556,14 @@ export function ModelInference() {
               disabled={!binPath || loading}
               className="btn-run-inference"
             >
-              {loading ? '⏳ 분석 진행 중...' : '🚀 분석 시작'}
+              {loading ? <><span className="btn-spinner" />분석 중</> : '분석 시작'}
             </button>
           </>
         ) : (
           <>
             <div className="batch-controls-row">
               <button onClick={handleAddBatchFiles} className="btn-add-files" disabled={batchLoading}>
-                📂 파일 추가 (다중 선택)
+                + 파일 추가
               </button>
               
               {/* 🆕 병렬 처리 수준 선택 */}
@@ -659,7 +673,7 @@ export function ModelInference() {
                 disabled={batchFiles.length === 0 || batchLoading}
                 className="btn-run-inference"
               >
-                {batchLoading ? '⏳ 배치 분석 진행 중...' : '🚀 전체 분석 시작'}
+                {batchLoading ? <><span className="btn-spinner" />분석 중</> : '전체 분석 시작'}
               </button>
 
               {batchLoading && (

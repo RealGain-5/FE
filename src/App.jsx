@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { LoginForm } from './components/LoginForm'
 import { ModelInference } from './components/ModelInference'
+import { SVDDAnalysis } from './components/SVDDAnalysis'
+import { MAEAnalysis } from './components/MAEAnalysis'
 import './App.css'
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
+  const [activeTab, setActiveTab] = useState('ensemble')
 
   useEffect(() => {
     async function init() {
@@ -37,8 +40,34 @@ function App() {
     <div className="dashboard-layout">
       <header className="app-header">
         <div className="logo-area">
-          <span>📊</span> 분석 대시보드
+          <div className="logo-mark">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </div>
+          <span className="logo-name">RCP<span>VMS</span></span>
         </div>
+        <nav className="app-tab-nav">
+          <button
+            className={`app-tab-btn ${activeTab === 'ensemble' ? 'active' : ''}`}
+            onClick={() => setActiveTab('ensemble')}
+          >
+            앙상블 분석
+          </button>
+          <button
+            className={`app-tab-btn ${activeTab === 'svdd' ? 'active' : ''}`}
+            onClick={() => setActiveTab('svdd')}
+          >
+            SVDD 분석
+          </button>
+          <button
+            className={`app-tab-btn ${activeTab === 'mae' ? 'active' : ''}`}
+            onClick={() => setActiveTab('mae')}
+          >
+            MAE 분석
+          </button>
+        </nav>
         <div className="user-controls">
           <span className="user-name">
             <strong>{user?.username}</strong>님
@@ -50,7 +79,9 @@ function App() {
       </header>
 
       <main className="main-content">
-        <ModelInference />
+        {activeTab === 'ensemble' && <ModelInference />}
+        {activeTab === 'svdd' && <SVDDAnalysis />}
+        {activeTab === 'mae' && <MAEAnalysis />}
       </main>
     </div>
   )

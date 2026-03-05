@@ -1,0 +1,351 @@
+/* ── MAE 모델 배지 ─────────────────────────────── */
+.mae-model-badge {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+/* ── 요약 미터 ──────────────────────────────────── */
+.mae-meter {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  margin-bottom: 12px;
+}
+
+.mae-meter-anom {
+  border-color: var(--status-anomaly-border);
+  background: var(--status-anomaly-bg);
+}
+
+.mae-meter-ok {
+  border-color: var(--status-normal-border);
+  background: var(--status-normal-bg);
+}
+
+.mae-meter-left {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 130px;
+}
+
+.mae-meter-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.mae-meter-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.mae-meter-sub {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.val-red   { color: var(--status-anomaly); }
+.val-green { color: var(--status-normal);  }
+
+.mae-meter-bar-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mae-bar-track {
+  height: 7px;
+  background: var(--bg-overlay);
+  border-radius: 4px;
+  position: relative;
+  overflow: visible;
+}
+
+.mae-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg,
+    var(--status-normal) 0%,
+    #d29922 46%,
+    var(--status-anomaly) 100%
+  );
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mae-bar-threshold {
+  position: absolute;
+  top: -5px;
+  width: 2px;
+  height: 17px;
+  background: var(--text-secondary);
+  border-radius: 1px;
+  transform: translateX(-50%);
+}
+
+.mae-thresh-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-2px);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.mae-bar-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+.mae-meter-right {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.mae-verdict-big {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.verd-anomaly { color: var(--status-anomaly); }
+.verd-normal  { color: var(--status-normal);  }
+
+/* ── RCP 탭 ────────────────────────────────────── */
+.mae-rcp-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.mae-rcp-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.mae-rcp-tab:hover {
+  background: var(--bg-overlay);
+  border-color: var(--border-strong);
+}
+
+.mae-rcp-tab.active {
+  background: var(--bg-overlay);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-subtle);
+}
+
+.mae-rcp-tab.tab-anom.active {
+  border-color: var(--status-anomaly);
+  background: var(--status-anomaly-bg);
+}
+
+.mae-tab-rcp {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mae-tab-score {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.72rem;
+}
+
+.score-red   { color: var(--status-anomaly); }
+.score-green { color: var(--status-normal);  }
+
+/* ── 4열 스펙트로그램 그리드 ─────────────────────── */
+.mae-spec-grid {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.mae-spec-grid.mae-anomaly {
+  border-color: var(--status-anomaly-border);
+}
+
+.mae-rcp-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.mae-rcp-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mae-verdict-tag {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.06em;
+}
+
+.tag-anomaly {
+  background: var(--status-anomaly-bg);
+  color: var(--status-anomaly);
+  border: 1px solid var(--status-anomaly-border);
+}
+
+.tag-normal {
+  background: var(--status-normal-bg);
+  color: var(--status-normal);
+  border: 1px solid var(--status-normal-border);
+}
+
+.mae-four-col {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+}
+
+.mae-panel {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.mae-panel:last-child {
+  border-right: none;
+}
+
+.mae-panel-warn {
+  background: rgba(248, 81, 73, 0.02);
+}
+
+.mae-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.12);
+  gap: 6px;
+}
+
+.mae-panel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mae-panel-num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.mae-panel-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+/* Panel tags */
+.mae-tag {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mae-tag-input { background: var(--accent-subtle);         color: var(--accent);         border: 1px solid rgba(88,166,255,0.25); }
+.mae-tag-recon { background: rgba(63,185,80,0.10);          color: var(--status-normal);  border: 1px solid var(--status-normal-border); }
+.mae-tag-fail  { background: var(--status-anomaly-bg);      color: var(--status-anomaly); border: 1px solid var(--status-anomaly-border); }
+.mae-tag-heat  { background: rgba(210,153,34,0.10);         color: var(--status-warning); border: 1px solid var(--status-warning-border); }
+
+/* Image area */
+.mae-img-wrap {
+  flex: 1;
+  background: #04070c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+}
+
+.mae-spec-img {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: fill;
+  image-rendering: pixelated;
+}
+
+.mae-img-placeholder {
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+/* Axis */
+.mae-axis-x {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid var(--border);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+/* ── 수치 상세 행 ────────────────────────────────── */
+.mae-detail-row {
+  display: flex;
+  gap: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+}

@@ -1,79 +1,170 @@
-/* === 로그인/회원가입 화면 === */
+/* === 로그인 화면 === */
 .auth-container {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background: linear-gradient(135deg, #eff6ff 0%, #f1f5f9 100%);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 60% 50% at 15% 50%, rgba(88, 166, 255, 0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 20%, rgba(163, 113, 247, 0.06) 0%, transparent 60%),
+    var(--bg-base);
+}
+
+/* Subtle grid pattern overlay */
+.auth-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  opacity: 0.6;
 }
 
 .auth-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 400px;
   background: var(--bg-surface);
   padding: 2.5rem;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  text-align: center;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
 }
 
 .auth-header {
   margin-bottom: 2rem;
+  text-align: center;
+}
+
+/* Logo mark + name */
+.auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 0.4rem;
+}
+
+.auth-logo-mark {
+  width: 38px;
+  height: 38px;
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.auth-logo-mark svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-logo-name {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.auth-logo-name span {
+  color: var(--accent);
+}
+
+.auth-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 6px;
+  margin-bottom: 0;
 }
 
 .auth-header h2 {
-  font-size: 1.5rem;
-  color: var(--text-main);
-  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 1.4rem 0 0 0;
+  font-weight: 500;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .input-field {
   width: 100%;
-  padding: 0.8rem 1rem;
-  border: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
-  font-size: 1rem;
-  box-sizing: border-box; /* 패딩 포함 크기 계산 */
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  box-sizing: border-box;
   transition: all 0.2s;
+  font-family: inherit;
+}
+
+.input-field::placeholder {
+  color: var(--text-muted);
 }
 
 .input-field:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+  background: var(--bg-overlay);
 }
 
 .btn-primary {
   width: 100%;
   padding: 0.8rem;
-  background-color: var(--primary);
-  color: white;
+  background: var(--accent);
+  color: #fff;
   border: none;
   border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
   cursor: pointer;
-  transition: background 0.2s;
+  letter-spacing: 0.02em;
+  transition: all 0.2s;
+  font-family: inherit;
 }
 
-.btn-primary:hover {
-  background-color: var(--primary-hover);
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 14px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .auth-toggle {
   margin-top: 1.5rem;
-  font-size: 0.9rem;
-  color: var(--text-sub);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: center;
 }
 
 .auth-link {
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 600;
   cursor: pointer;
   margin-left: 0.5rem;
@@ -81,23 +172,31 @@
   border: none;
   font-size: inherit;
   padding: 0;
-}
-.auth-link:hover {
-  text-decoration: underline;
+  font-family: inherit;
 }
 
+.auth-link:hover { text-decoration: underline; }
+
 .auth-error {
-  color: var(--status-abnormal);
-  font-size: 0.9rem;
+  color: var(--status-anomaly);
+  font-size: 0.85rem;
   margin: 0;
   text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: var(--status-anomaly-bg);
+  border: 1px solid var(--status-anomaly-border);
+  border-radius: var(--radius-sm);
 }
 
 .auth-success {
   color: var(--status-normal);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin: 0;
   text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: var(--status-normal-bg);
+  border: 1px solid var(--status-normal-border);
+  border-radius: var(--radius-sm);
 }
 
 /* === 메인 대시보드 레이아웃 === */
@@ -109,23 +208,65 @@
 }
 
 .app-header {
-  height: 60px;
+  height: 56px;
   background: var(--bg-surface);
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 2rem;
+  padding: 0 1.5rem;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Blue accent line at top of header */
+.app-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent) 0%, rgba(88, 166, 255, 0.2) 100%);
 }
 
 .logo-area {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
+}
+
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.30);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-mark svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-name {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.logo-name span {
+  color: var(--accent);
 }
 
 .user-controls {
@@ -135,30 +276,74 @@
 }
 
 .user-name {
-  font-weight: 500;
-  color: var(--text-main);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.user-name strong {
+  color: var(--text-primary);
 }
 
 .btn-logout {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: var(--text-sub);
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
   border-radius: var(--radius-md);
   cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
 }
+
 .btn-logout:hover {
-  background: #e2e8f0;
-  color: var(--status-abnormal);
+  background: var(--status-anomaly-bg);
+  border-color: var(--status-anomaly-border);
+  color: var(--status-anomaly);
 }
 
 .main-content {
   flex: 1;
   overflow-y: auto;
-  padding: 2rem;
+  padding: 1.5rem 2rem;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+/* === 탭 네비게이션 === */
+.app-tab-nav {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-elevated);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.app-tab-btn {
+  padding: 5px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.app-tab-btn:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+.app-tab-btn.active {
+  background: var(--bg-surface);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }

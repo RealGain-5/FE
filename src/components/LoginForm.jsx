@@ -58,7 +58,17 @@ export function LoginForm({ onLoginSuccess }) {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <h2>{isLoginMode ? '🔐 시스템 로그인' : '📝 회원가입'}</h2>
+          <div className="auth-logo">
+            <div className="auth-logo-mark">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+            </div>
+            <span className="auth-logo-name">RCP<span>VMS</span></span>
+          </div>
+          <p className="auth-subtitle">회전체 진동 모니터링 시스템</p>
+          <h2>{isLoginMode ? '로그인' : '계정 생성'}</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
