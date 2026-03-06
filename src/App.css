@@ -296,6 +296,33 @@
   transition: all 0.2s;
 }
 
+.btn-theme-toggle {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-theme-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-theme-toggle:hover {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .btn-logout:hover {
   background: var(--status-anomaly-bg);
   border-color: var(--status-anomaly-border);

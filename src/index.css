@@ -1,9 +1,85 @@
 /* =====================================================
    RCP VMS — Design System
-   Theme: Dark Industrial Precision
+   Default: Light Mode  |  [data-theme="dark"]: Dark Mode
    ===================================================== */
 
 :root {
+  /* ── Light Mode (default) ── */
+
+  /* Surface Layers */
+  --bg-base:     #f6f8fa;
+  --bg-surface:  #ffffff;
+  --bg-elevated: #f0f2f4;
+  --bg-overlay:  #e6eaef;
+
+  /* Borders */
+  --border:        rgba(27, 31, 36, 0.10);
+  --border-strong: rgba(27, 31, 36, 0.20);
+
+  /* Text */
+  --text-primary:   #1a1f24;
+  --text-secondary: #57606a;
+  --text-muted:     #8c959f;
+
+  /* Accent — Precision Blue */
+  --accent:        #0969da;
+  --accent-hover:  #0752b8;
+  --accent-subtle: rgba(9, 105, 218, 0.10);
+  --accent-glow:   rgba(9, 105, 218, 0.25);
+
+  /* Status — Normal */
+  --status-normal:        #1a7f37;
+  --status-normal-bg:     rgba(26, 127, 55, 0.10);
+  --status-normal-border: rgba(26, 127, 55, 0.30);
+
+  /* Status — Anomaly */
+  --status-anomaly:        #cf222e;
+  --status-anomaly-bg:     rgba(207, 34, 46, 0.10);
+  --status-anomaly-border: rgba(207, 34, 46, 0.35);
+  --status-anomaly-glow:   rgba(207, 34, 46, 0.15);
+
+  /* Status — Warning / Unbalance */
+  --status-warning:        #9a6700;
+  --status-warning-bg:     rgba(154, 103, 0, 0.10);
+  --status-warning-border: rgba(154, 103, 0, 0.30);
+
+  /* Status — Oil Whip */
+  --status-oil:    #8250df;
+  --status-oil-bg: rgba(130, 80, 223, 0.10);
+
+  /* Status — OOD */
+  --status-ood:    #bc4c00;
+  --status-ood-bg: rgba(188, 76, 0, 0.10);
+
+  /* Legacy aliases (backward compat with existing JSX) */
+  --primary:          var(--accent);
+  --primary-hover:    var(--accent-hover);
+  --bg-app:           var(--bg-base);
+  --bg-surface-old:   var(--bg-surface);
+  --text-main:        var(--text-primary);
+  --text-sub:         var(--text-secondary);
+  --text-placeholder: var(--text-muted);
+  --status-abnormal:  var(--status-anomaly);
+
+  /* Radius */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(27, 31, 36, 0.12);
+  --shadow-md: 0 4px 16px rgba(27, 31, 36, 0.15);
+  --shadow-lg: 0 8px 32px rgba(27, 31, 36, 0.18);
+
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "kern" 1;
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  /* ── Dark Mode ── */
+
   /* Surface Layers */
   --bg-base:     #0d1117;
   --bg-surface:  #161b22;
@@ -49,29 +125,11 @@
   --status-ood:    #f0883e;
   --status-ood-bg: rgba(240, 136, 62, 0.10);
 
-  /* Legacy aliases (backward compat with existing JSX) */
-  --primary:          var(--accent);
-  --primary-hover:    var(--accent-hover);
-  --bg-app:           var(--bg-base);
-  --bg-surface-old:   var(--bg-surface);
-  --text-main:        var(--text-primary);
-  --text-sub:         var(--text-secondary);
-  --text-placeholder: var(--text-muted);
-  --status-abnormal:  var(--status-anomaly);
-
-  /* Radius */
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.50);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.60);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.70);
 
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  font-feature-settings: "kern" 1;
   color-scheme: dark;
 }
 
@@ -91,7 +149,7 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(240, 246, 252, 0.15);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-track { background: transparent; }
