@@ -1,4 +1,5 @@
 import React from 'react'
+import { getFileName } from '../../utils/fileUtils'
 
 export function BatchProgressBar({ batchProgress, batchLoading }) {
   const pct = batchProgress.total
@@ -22,7 +23,7 @@ export function BatchProgressBar({ batchProgress, batchLoading }) {
           <div className="running-files-list">
             {batchProgress.running.map(p => (
               <div key={p} className="running-file-item">
-                {p.split(/[/\\]/).pop()}
+                {getFileName(p)}
               </div>
             ))}
           </div>

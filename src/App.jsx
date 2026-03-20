@@ -2,7 +2,35 @@ import React, { useState, useEffect } from 'react'
 import { LoginForm } from './components/LoginForm'
 import { ModelInference } from './components/ModelInference'
 import { MAEAnalysis } from './components/MAEAnalysis'
+import { DmdOrbitViewer } from './components/DmdOrbitViewer'
+import { RcpvmsOrbitViewer } from './components/RcpvmsOrbitViewer'
 import './App.css'
+
+class TabErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, info) {
+    console.error('[TabErrorBoundary] 탭 렌더링 오류:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
+          <h3 style={{ color: 'var(--status-anomaly, red)' }}>렌더링 오류</h3>
+          <pre style={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+            {this.state.error?.toString()}
+          </pre>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -67,6 +95,18 @@ function App() {
           >
             MAE 분석
           </button>
+          <button
+            className={`app-tab-btn ${activeTab === 'dmd' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dmd')}
+          >
+            DMD 분석
+          </button>
+          <button
+            className={`app-tab-btn ${activeTab === 'rcpvms' ? 'active' : ''}`}
+            onClick={() => setActiveTab('rcpvms')}
+          >
+            RCPVMS 뷰어
+          </button>
         </nav>
         <div className="user-controls">
           <button onClick={toggleTheme} className="btn-theme-toggle" title={theme === 'light' ? '다크 모드로 전환' : '라이트 모드로 전환'}>
@@ -94,8 +134,10 @@ function App() {
       </header>
 
       <main className="main-content">
-        {activeTab === 'ensemble' && <ModelInference />}
-        {activeTab === 'mae' && <MAEAnalysis />}
+        {activeTab === 'ensemble' && <TabErrorBoundary key="ensemble"><ModelInference /></TabErrorBoundary>}
+        {activeTab === 'mae' && <TabErrorBoundary key="mae"><MAEAnalysis /></TabErrorBoundary>}
+        {activeTab === 'dmd' && <TabErrorBoundary key="dmd"><DmdOrbitViewer /></TabErrorBoundary>}
+        {activeTab === 'rcpvms' && <TabErrorBoundary key="rcpvms"><RcpvmsOrbitViewer /></TabErrorBoundary>}
       </main>
     </div>
   )

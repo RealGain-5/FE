@@ -1,4 +1,5 @@
 import React from 'react'
+import { getFileName } from '../../utils/fileUtils'
 
 /**
  * @param {object} props
@@ -25,7 +26,7 @@ export function BatchFileList({ files, onRemove, disabled, getLabel, onRetry }) 
                 {file.status === 'failed'    && '✗'}
               </span>
               <span className="file-path" title={file.path}>
-                {file.path.split(/[/\\]/).pop()}
+                {getFileName(file.path)}
               </span>
               {file.result && getLabel(file)}
             </div>

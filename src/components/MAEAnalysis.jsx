@@ -5,6 +5,9 @@ import { useAnalysisController } from '../hooks/useAnalysisController'
 import { ConcurrencySelector } from './shared/ConcurrencySelector'
 import { BatchFileList } from './shared/BatchFileList'
 import { BatchProgressBar } from './shared/BatchProgressBar'
+import { SingleFileMode } from './shared/SingleFileMode'
+import { BatchActionButtons } from './shared/BatchActionButtons'
+import { BatchResultList } from './shared/BatchResultList'
 
 // ─────────────────────────────────────────────
 // Score Gauge (0 ~ 2× threshold 표시)
@@ -236,17 +239,12 @@ export function MAEAnalysis() {
         </div>
 
         {mode === 'single' ? (
-          <>
-            <div className="input-group">
-              <div className="file-picker-wrapper">
-                <button onClick={handleSelectFile} className="btn-file-select" disabled={loading}>파일 선택</button>
-                <span className="file-path-text">{binPath || '분석할 .bin 파일을 선택해주세요.'}</span>
-              </div>
-            </div>
-            <button onClick={handleRunSingle} disabled={!binPath || loading} className="btn-run-inference">
-              {loading ? <><span className="btn-spinner" />분석 중</> : '분석 시작'}
-            </button>
-          </>
+          <SingleFileMode
+            binPath={binPath}
+            loading={loading}
+            onSelectFile={handleSelectFile}
+            onRun={handleRunSingle}
+          />
         ) : (
           <>
             <div className="batch-controls-row">
@@ -274,18 +272,12 @@ export function MAEAnalysis() {
               <BatchProgressBar batchProgress={batchProgress} batchLoading={batchLoading} />
             )}
 
-            <div className="batch-action-buttons">
-              <button
-                onClick={handleRunBatch}
-                disabled={batchFiles.length === 0 || batchLoading}
-                className="btn-run-inference"
-              >
-                {batchLoading ? <><span className="btn-spinner" />분석 중</> : '전체 분석 시작'}
-              </button>
-              {batchLoading && (
-                <button onClick={handleCancelBatch} className="btn-cancel">⏹ 취소</button>
-              )}
-            </div>
+            <BatchActionButtons
+              filesCount={batchFiles.length}
+              batchLoading={batchLoading}
+              onRun={handleRunBatch}
+              onCancel={handleCancelBatch}
+            />
           </>
         )}
 
@@ -296,33 +288,16 @@ export function MAEAnalysis() {
 
       {mode === 'single' && result && <MAEResultPanel result={result} />}
 
-      {mode === 'batch' && batchFiles.some(f => f.status === 'completed' || f.status === 'failed') && (
-        <div className="batch-results">
-          <h3 className="results-title">분석 결과</h3>
-          {batchFiles.map(file => {
-            if (file.status !== 'completed' && file.status !== 'failed') return null
-            return (
-              <details key={file.path} className="result-accordion" open>
-                <summary className={`accordion-header ${file.status}`}>
-                  <span className="accordion-title">
-                    {file.status === 'completed' ? '✓' : '✗'}{' '}
-                    {file.path.split(/[/\\]/).pop()}
-                  </span>
-                  {file.result && (
-                    <span className={`accordion-label ${file.result.final_verdict === 'anomaly' ? 'abnormal' : 'normal'}`}>
-                      {file.result.final_verdict.toUpperCase()}
-                    </span>
-                  )}
-                  {file.error && <span className="accordion-error">실패</span>}
-                </summary>
-                <div className="accordion-content">
-                  {file.status === 'failed'    && <div className="error-box">⚠️ {file.error}</div>}
-                  {file.status === 'completed' && file.result && <MAEResultPanel result={file.result} />}
-                </div>
-              </details>
-            )
-          })}
-        </div>
+      {mode === 'batch' && (
+        <BatchResultList
+          files={batchFiles}
+          renderResult={(result) => <MAEResultPanel result={result} />}
+          getLabel={(file) => (
+            <span className={`accordion-label ${file.result.final_verdict === 'anomaly' ? 'abnormal' : 'normal'}`}>
+              {file.result.final_verdict.toUpperCase()}
+            </span>
+          )}
+        />
       )}
     </div>
   )
