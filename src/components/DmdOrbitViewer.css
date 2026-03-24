@@ -125,6 +125,33 @@
   color: var(--text-muted);
 }
 
+/* ── Scale Mode 토글 버튼 ─────────────────────────────── */
+.btn-scale-mode {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-scale-mode:hover:not(:disabled) {
+  background: var(--accent-subtle);
+  border-color: rgba(88, 166, 255, 0.3);
+  color: var(--accent);
+}
+.btn-scale-mode.active {
+  background: var(--accent-subtle);
+  border-color: rgba(88, 166, 255, 0.5);
+  color: var(--accent);
+}
+.btn-scale-mode:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ── 인라인 로딩 상태 ─────────────────────────────────── */
 /* btn-spinner와 동일 사이즈, 배경 없는 버튼 바깥 버전 */
 .dmd-loading-hint {
@@ -149,9 +176,19 @@
 
 /* ── 결과 헤더 ──────────────────────────────────────── */
 .dmd-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 14px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
+}
+
+.scale-mode-toggle {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .dmd-result-meta {
@@ -403,6 +440,61 @@
 .dmd-modal-img {
   display: block;
   max-width: min(580px, 85vw);
-  max-height: 75vh;
+  max-height: 65vh;
   object-fit: contain;
+  transform-origin: center center;
+  user-select: none;
+}
+
+/* ── 모달 줌 레벨 표시 ─────────────────────────────── */
+.dmd-modal-zoom-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── 모달 네비게이션 바 ─────────────────────────────── */
+.dmd-modal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dmd-modal-nav-btn {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dmd-modal-nav-btn:hover:not(:disabled) {
+  background: var(--accent-subtle);
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--accent);
+}
+
+.dmd-modal-nav-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.dmd-modal-nav-info {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  min-width: 60px;
+  text-align: center;
 }
