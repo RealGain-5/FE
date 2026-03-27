@@ -1,5 +1,6 @@
 import React from 'react'
 import { getFileName } from '../../utils/fileUtils'
+import { StatusCell } from './StatusCell'
 
 /**
  * @param {object} props
@@ -19,12 +20,7 @@ export function BatchFileList({ files, onRemove, disabled, getLabel, onRetry }) 
         {files.map(file => (
           <div key={file.path} className={`file-item ${file.status}`}>
             <div className="file-info">
-              <span className="file-status-icon">
-                {file.status === 'pending'   && '⏸'}
-                {file.status === 'running'   && '⏳'}
-                {file.status === 'completed' && '✓'}
-                {file.status === 'failed'    && '✗'}
-              </span>
+              <StatusCell status={file.status} />
               <span className="file-path" title={file.path}>
                 {getFileName(file.path)}
               </span>

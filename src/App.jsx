@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { LoginForm } from './components/LoginForm'
-import { ModelInference } from './components/ModelInference'
-import { MAEAnalysis } from './components/MAEAnalysis'
-import { DmdOrbitViewer } from './components/DmdOrbitViewer'
-import { RcpvmsOrbitViewer } from './components/RcpvmsOrbitViewer'
+import { TAB_CONFIG } from './utils/tabRegistry'
 import './App.css'
 
 class TabErrorBoundary extends React.Component {
@@ -35,7 +32,7 @@ class TabErrorBoundary extends React.Component {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [user, setUser] = useState(null)
-  const [activeTab, setActiveTab] = useState('ensemble')
+  const [activeTab, setActiveTab] = useState(TAB_CONFIG[0].id)
   const [theme, setTheme] = useState('light')
 
   useEffect(() => {
@@ -83,30 +80,15 @@ function App() {
           <span className="logo-name">RCP<span>VMS</span></span>
         </div>
         <nav className="app-tab-nav">
-          <button
-            className={`app-tab-btn ${activeTab === 'ensemble' ? 'active' : ''}`}
-            onClick={() => setActiveTab('ensemble')}
-          >
-            앙상블 분석
-          </button>
-          <button
-            className={`app-tab-btn ${activeTab === 'mae' ? 'active' : ''}`}
-            onClick={() => setActiveTab('mae')}
-          >
-            MAE 분석
-          </button>
-          <button
-            className={`app-tab-btn ${activeTab === 'dmd' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dmd')}
-          >
-            DMD 분석
-          </button>
-          <button
-            className={`app-tab-btn ${activeTab === 'rcpvms' ? 'active' : ''}`}
-            onClick={() => setActiveTab('rcpvms')}
-          >
-            RCPVMS 뷰어
-          </button>
+          {TAB_CONFIG.map(({ id, label }) => (
+            <button
+              key={id}
+              className={`app-tab-btn ${activeTab === id ? 'active' : ''}`}
+              onClick={() => setActiveTab(id)}
+            >
+              {label}
+            </button>
+          ))}
         </nav>
         <div className="user-controls">
           <button onClick={toggleTheme} className="btn-theme-toggle" title={theme === 'light' ? '다크 모드로 전환' : '라이트 모드로 전환'}>
@@ -134,10 +116,11 @@ function App() {
       </header>
 
       <main className="main-content">
-        {activeTab === 'ensemble' && <TabErrorBoundary key="ensemble"><ModelInference /></TabErrorBoundary>}
-        {activeTab === 'mae' && <TabErrorBoundary key="mae"><MAEAnalysis /></TabErrorBoundary>}
-        {activeTab === 'dmd' && <TabErrorBoundary key="dmd"><DmdOrbitViewer /></TabErrorBoundary>}
-        {activeTab === 'rcpvms' && <TabErrorBoundary key="rcpvms"><RcpvmsOrbitViewer /></TabErrorBoundary>}
+        {TAB_CONFIG.map(({ id, Component }) =>
+          activeTab === id && (
+            <TabErrorBoundary key={id}><Component /></TabErrorBoundary>
+          )
+        )}
       </main>
     </div>
   )

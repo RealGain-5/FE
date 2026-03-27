@@ -6,9 +6,18 @@ import { BatchProgressBar } from './shared/BatchProgressBar'
 import { ConcurrencySelector } from './shared/ConcurrencySelector'
 import { OrbitGrid, InfoRow, RcpvmsFileInfoPanel } from './shared/OrbitGrid'
 import { SubTabNav } from './shared/SubTabNav'
+import { ScaleModeToggle } from './shared/ScaleModeToggle'
+import { FileOperationFlow } from './shared/FileOperationFlow'
+import { StatusCell } from './shared/StatusCell'
 import { getFileName } from '../utils/fileUtils'
+import { useConcurrencySelector } from '../hooks/useConcurrencySelector'
 
 const DEFAULT_WINDOW_SEC = 1.0
+
+function resolveOrbitData(result, scaleMode) {
+  if (!result) return null
+  return { ...result, timeline: result[`timeline_${scaleMode}`] ?? result.timeline_auto }
+}
 
 function WindowSecInput({ id, value, onChange, disabled }) {
   return (
@@ -35,10 +44,7 @@ function BatchResultItem({ file, scaleMode }) {
   const [expanded, setExpanded] = useState(true)
   const fileName = getFileName(file.path)
   const res = file.result
-  // scaleMode에 따라 적절한 timeline을 선택해 OrbitGrid에 전달
-  const orbitData = res
-    ? { ...res, timeline: res[`timeline_${scaleMode}`] ?? res.timeline_auto }
-    : null
+  const orbitData = resolveOrbitData(res, scaleMode)
 
   return (
     <div className="rcpvms-batch-result-item">
@@ -46,12 +52,7 @@ function BatchResultItem({ file, scaleMode }) {
         className={`rcpvms-batch-result-header ${res ? 'clickable' : ''}`}
         onClick={() => res && setExpanded(v => !v)}
       >
-        <span className="file-status-icon">
-          {file.status === 'pending'   && '⏸'}
-          {file.status === 'running'   && '⏳'}
-          {file.status === 'completed' && '✓'}
-          {file.status === 'failed'    && '✗'}
-        </span>
+        <StatusCell status={file.status} />
         <span className="rcpvms-batch-result-name" title={file.path}>{fileName}</span>
         {/* completed → res 존재, failed → error 존재, 둘은 상호 배타적 */}
         {file.status === 'completed' && res && (
@@ -127,35 +128,17 @@ function SingleFileTab() {
     }
   }
 
-  const fileName = binPath ? getFileName(binPath) : null
-  const canAnalyze = fileInfo?.has_orbit && !loading && !analyzing
-  // scaleMode에 따라 적절한 timeline을 선택해 OrbitGrid에 전달
-  const orbitData = result
-    ? { ...result, timeline: result[`timeline_${scaleMode}`] ?? result.timeline_auto }
-    : null
-
   return (
-    <div>
-      <div className="input-group">
-        <div className="file-picker-wrapper">
-          <button onClick={handleSelectFile} className="btn-file-select" disabled={loading || analyzing}>
-            BIN 파일 선택
-          </button>
-          <span className="file-path-text">
-            {fileName || 'RCPVMS .BIN 파일을 선택해주세요.'}
-          </span>
-        </div>
-      </div>
-
-      {loading && (
-        <div className="dmd-loading-hint">
-          <span className="dmd-inline-spinner" />파일 정보 읽는 중...
-        </div>
-      )}
-
-      {fileInfo && !loading && <RcpvmsFileInfoPanel fileInfo={fileInfo} />}
-
-      {fileInfo && !loading && (
+    <FileOperationFlow
+      filePickerLabel="BIN 파일 선택"
+      filePlaceholderText="RCPVMS .BIN 파일을 선택해주세요."
+      filePath={binPath}
+      onSelectFile={handleSelectFile}
+      pickerDisabled={loading || analyzing}
+      loading={loading}
+      fileInfo={fileInfo}
+      renderFileInfo={(info) => <RcpvmsFileInfoPanel fileInfo={info} />}
+      renderParams={() => (
         <div className="dmd-param-row">
           <WindowSecInput
             id="rcpvms-window-sec"
@@ -165,48 +148,32 @@ function SingleFileTab() {
           />
         </div>
       )}
-
-      {fileInfo && !loading && (
-        <button
-          onClick={handleRunOrbit}
-          disabled={!canAnalyze}
-          className="btn-run-inference"
-          style={{ marginTop: '0.75rem' }}
-        >
-          {analyzing
-            ? <><span className="btn-spinner" />궤도 생성 중</>
-            : '궤도 이미지 생성'
-          }
-        </button>
-      )}
-
-      {error && <div className="error-message" style={{ marginTop: '0.75rem' }}>⚠️ {error}</div>}
-
-      {result && (
-        <div className="result-container">
-          <div className="dmd-result-header">
-            <span className="dmd-result-meta">
-              {result.n_windows}개 윈도우 · {result.window_sec}초 단위
-              {scaleMode === 'fixed'
-                ? ` · Fixed ±${result.fixed_axis_lim?.toFixed(1)} mil`
-                : ' · Auto Scale'}
-              {result.event_date && ` · ${result.event_date}`}
-            </span>
-            <div className="scale-mode-toggle">
-              <button
-                className={`btn-scale-mode ${scaleMode === 'auto' ? 'active' : ''}`}
-                onClick={() => setScaleMode('auto')}
-              >Auto Scale</button>
-              <button
-                className={`btn-scale-mode ${scaleMode === 'fixed' ? 'active' : ''}`}
-                onClick={() => setScaleMode('fixed')}
-              >Fixed Scale</button>
+      onRun={handleRunOrbit}
+      canRun={fileInfo?.has_orbit && !loading && !analyzing}
+      analyzing={analyzing}
+      actionLabel="궤도 이미지 생성"
+      analyzingLabel="궤도 생성 중"
+      error={error}
+      result={result}
+      renderResult={(res) => {
+        const orbitData = resolveOrbitData(res, scaleMode)
+        return (
+          <div className="result-container">
+            <div className="dmd-result-header">
+              <span className="dmd-result-meta">
+                {res.n_windows}개 윈도우 · {res.window_sec}초 단위
+                {scaleMode === 'fixed'
+                  ? ` · Fixed ±${res.fixed_axis_lim?.toFixed(1)} mil`
+                  : ' · Auto Scale'}
+                {res.event_date && ` · ${res.event_date}`}
+              </span>
+              <ScaleModeToggle scaleMode={scaleMode} onChange={setScaleMode} />
             </div>
+            <OrbitGrid data={orbitData} />
           </div>
-          <OrbitGrid data={orbitData} />
-        </div>
-      )}
-    </div>
+        )
+      }}
+    />
   )
 }
 
@@ -218,7 +185,7 @@ function BatchTab() {
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, failed: 0, running: [] })
   const [windowSec, setWindowSec]       = useState(DEFAULT_WINDOW_SEC)
-  const [concurrency, setConcurrency]   = useState(2)
+  const { level: concurrency, handleChange: handleConcurrencyChange } = useConcurrencySelector(2)
   const [scaleMode, setScaleMode]       = useState('auto')  // 로컬 state — 서버 왕복 없이 즉각 전환
 
   // 진행 이벤트 수신
@@ -285,13 +252,8 @@ function BatchTab() {
     setFiles(prev => prev.filter(f => f.path !== path))
   }
 
-  const handleConcurrencyChange = async (e) => {
-    const val = parseInt(e.target.value)
-    setConcurrency(val)
-    await window.api.setConcurrencyLevel(val)
-  }
-
   const handleRunBatch = async () => {
+    if (batchLoading) return  // 재진입 방지
     const pendingPaths = files.filter(f => f.status === 'pending' || f.status === 'failed').map(f => f.path)
     if (pendingPaths.length === 0) return
 
@@ -318,7 +280,7 @@ function BatchTab() {
   }
 
   const pendingCount = files.filter(f => f.status === 'pending' || f.status === 'failed').length
-  const completedFiles = files.filter(f => f.status === 'completed' || f.status === 'failed')
+  const finishedFiles = files.filter(f => f.status === 'completed' || f.status === 'failed')
   const hasCompletedFile = files.some(f => f.status === 'completed')
 
   return (
@@ -403,28 +365,19 @@ function BatchTab() {
         />
       )}
 
-      {/* 완료된 파일 결과 목록 */}
-      {completedFiles.length > 0 && (
+      {/* 처리 완료/실패 파일 결과 목록 */}
+      {finishedFiles.length > 0 && (
         <div style={{ marginTop: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-              완료된 파일 ({completedFiles.length}개)
+              처리 결과 ({finishedFiles.length}개)
             </span>
             {hasCompletedFile && (
-              <div className="scale-mode-toggle">
-                <button
-                  className={`btn-scale-mode ${scaleMode === 'auto' ? 'active' : ''}`}
-                  onClick={() => setScaleMode('auto')}
-                >Auto Scale</button>
-                <button
-                  className={`btn-scale-mode ${scaleMode === 'fixed' ? 'active' : ''}`}
-                  onClick={() => setScaleMode('fixed')}
-                >Fixed Scale</button>
-              </div>
+              <ScaleModeToggle scaleMode={scaleMode} onChange={setScaleMode} />
             )}
           </div>
           <div className="rcpvms-batch-results">
-            {completedFiles.map(file => (
+            {finishedFiles.map(file => (
               <BatchResultItem key={file.path} file={file} scaleMode={scaleMode} />
             ))}
           </div>

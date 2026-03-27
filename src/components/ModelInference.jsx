@@ -1,20 +1,16 @@
 import React, { useState } from 'react'
 import './ModelInference.css'
 import { useAnalysisController } from '../hooks/useAnalysisController'
-import { ConcurrencySelector } from './shared/ConcurrencySelector'
-import { BatchFileList } from './shared/BatchFileList'
-import { BatchProgressBar } from './shared/BatchProgressBar'
-import { SingleFileMode } from './shared/SingleFileMode'
-import { BatchActionButtons } from './shared/BatchActionButtons'
-import { BatchResultList } from './shared/BatchResultList'
+import { AnalysisModeLayout } from './shared/AnalysisModeLayout'
 import { getFileName } from '../utils/fileUtils'
+import { LABEL_STRATEGIES } from '../utils/labelStrategies'
 
 // ─────────────────────────────────────────────
 // RCP 카드 컴포넌트 (탭 포함)
 // ─────────────────────────────────────────────
 function RCPCard({ rcp, data, visualization }) {
   const [activeTab, setActiveTab] = useState('orbit')
-  const [timelineIndex, setTimelineIndex] = useState(9)
+  const [timelineIndex, setTimelineIndex] = useState(0)
   const [showModelDetail, setShowModelDetail] = useState(false)
   const hasEnsemble = !!(data.model_predictions)
 
@@ -203,7 +199,7 @@ export function ModelInference() {
   const {
     mode, setMode,
     binPath,
-    loading, result, error, setError,
+    loading, result, error,
     batchFiles, setBatchFiles,
     batchProgress, batchLoading,
     concurrencyLevel,
@@ -254,8 +250,18 @@ export function ModelInference() {
     }
   }
 
-  // JSON 내보내기
-  const handleExportJson = async () => {
+  // 공통 내보내기 실행 헬퍼
+  const runExport = async (apiCall, data, label) => {
+    try {
+      const response = await apiCall(data)
+      if (response.success) alert(`${label} 파일이 저장되었습니다.\n${response.filePath}`)
+      else if (!response.cancelled) alert(`내보내기 실패: ${response.error}`)
+    } catch (err) {
+      alert(`내보내기 오류: ${err.message}`)
+    }
+  }
+
+  const handleExportJson = () => {
     const completedFiles = batchFiles.filter(f => f.status === 'completed')
     if (completedFiles.length === 0) { alert('내보낼 결과가 없습니다.'); return }
     const exportData = {
@@ -271,126 +277,54 @@ export function ModelInference() {
         visualization: f.result.visualization,
       })),
     }
-    try {
-      const response = await window.api.exportResultsJson(exportData)
-      if (response.success) alert(`JSON 파일이 저장되었습니다.\n${response.filePath}`)
-      else if (!response.cancelled) alert(`내보내기 실패: ${response.error}`)
-    } catch (err) {
-      alert(`내보내기 오류: ${err.message}`)
-    }
+    runExport(window.api.exportResultsJson, exportData, 'JSON')
   }
 
-  // CSV 내보내기
-  const handleExportCsv = async () => {
+  const handleExportCsv = () => {
     const exportData = batchFiles.map(f => ({ path: f.path, status: f.status, result: f.result, error: f.error }))
-    try {
-      const response = await window.api.exportResultsCsv(exportData)
-      if (response.success) alert(`CSV 파일이 저장되었습니다.\n${response.filePath}`)
-      else if (!response.cancelled) alert(`내보내기 실패: ${response.error}`)
-    } catch (err) {
-      alert(`내보내기 오류: ${err.message}`)
-    }
+    runExport(window.api.exportResultsCsv, exportData, 'CSV')
   }
 
-  // Excel 내보내기
-  const handleExportExcel = async () => {
+  const handleExportExcel = () => {
     const exportData = batchFiles.map(f => ({ path: f.path, status: f.status, result: f.result, error: f.error }))
-    try {
-      const response = await window.api.exportResultsExcel(exportData)
-      if (response.success) alert(`Excel 파일이 저장되었습니다.\n${response.filePath}`)
-      else if (!response.cancelled) alert(`내보내기 실패: ${response.error}`)
-    } catch (err) {
-      alert(`내보내기 오류: ${err.message}`)
-    }
+    runExport(window.api.exportResultsExcel, exportData, 'Excel')
   }
 
   return (
-    <div className="model-inference">
-      <div className="control-panel">
-        <div className="header-row">
-          <h2 className="section-title">Orbit 이상 탐지</h2>
-          <div className="mode-toggle">
-            <button className={`mode-btn ${mode === 'single' ? 'active' : ''}`} onClick={() => setMode('single')}>단일 파일</button>
-            <button className={`mode-btn ${mode === 'batch'  ? 'active' : ''}`} onClick={() => setMode('batch')}>배치 처리</button>
+    <AnalysisModeLayout
+      title="Orbit 이상 탐지"
+      mode={mode}
+      setMode={setMode}
+      binPath={binPath}
+      loading={loading}
+      onSelectFile={handleSelectFile}
+      onRunSingle={handleRunSingle}
+      singleResult={result}
+      renderSingleResult={(r) => <ResultPanel result={r} />}
+      batchFiles={batchFiles}
+      batchProgress={batchProgress}
+      batchLoading={batchLoading}
+      concurrencyLevel={concurrencyLevel}
+      onConcurrencyChange={handleConcurrencyChange}
+      concurrencyId="concurrency-level"
+      onAddFiles={handleAddBatchFiles}
+      onRemoveFile={handleRemoveBatchFile}
+      onRetryFile={handleRetryFile}
+      onRunBatch={handleRunBatch}
+      onCancelBatch={handleCancelBatch}
+      getFileLabel={LABEL_STRATEGIES.ensemble.getFileLabel}
+      getAccordionLabel={LABEL_STRATEGIES.ensemble.getAccordionLabel}
+      renderBatchResult={(r) => <ResultPanel result={r} />}
+      batchExtraControls={
+        batchFiles.some(f => f.status === 'completed') ? (
+          <div className="export-buttons">
+            <button onClick={handleExportJson}  className="btn-export">JSON 내보내기</button>
+            <button onClick={handleExportCsv}   className="btn-export">CSV 내보내기</button>
+            <button onClick={handleExportExcel} className="btn-export">Excel 내보내기 (이미지 포함)</button>
           </div>
-        </div>
-
-        {mode === 'single' ? (
-          <SingleFileMode
-            binPath={binPath}
-            loading={loading}
-            onSelectFile={handleSelectFile}
-            onRun={handleRunSingle}
-          />
-        ) : (
-          <>
-            <div className="batch-controls-row">
-              <button onClick={handleAddBatchFiles} className="btn-add-files" disabled={batchLoading}>+ 파일 추가</button>
-              <ConcurrencySelector
-                id="concurrency-level"
-                value={concurrencyLevel}
-                onChange={handleConcurrencyChange}
-                disabled={batchLoading}
-              />
-            </div>
-
-            <BatchFileList
-              files={batchFiles}
-              onRemove={handleRemoveBatchFile}
-              disabled={batchLoading}
-              onRetry={handleRetryFile}
-              getLabel={(file) => (
-                <span className={`file-label ${file.result.final_label}`}>
-                  {file.result.final_label.toUpperCase()}
-                </span>
-              )}
-            />
-
-            {batchFiles.length > 0 && (
-              <BatchProgressBar batchProgress={batchProgress} batchLoading={batchLoading} />
-            )}
-
-            <BatchActionButtons
-              filesCount={batchFiles.length}
-              batchLoading={batchLoading}
-              onRun={handleRunBatch}
-              onCancel={handleCancelBatch}
-            />
-
-            {batchFiles.some(f => f.status === 'completed') && (
-              <div className="export-buttons">
-                <button onClick={handleExportJson}  className="btn-export">JSON 내보내기</button>
-                <button onClick={handleExportCsv}   className="btn-export">CSV 내보내기</button>
-                <button onClick={handleExportExcel} className="btn-export">Excel 내보내기 (이미지 포함)</button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {error && (
-        <div style={{
-          background: 'var(--status-anomaly-bg)', color: 'var(--status-anomaly)',
-          padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem',
-          border: '1px solid var(--status-anomaly-border)'
-        }}>
-          ⚠️ {error}
-        </div>
-      )}
-
-      {mode === 'single' && result && <ResultPanel result={result} />}
-
-      {mode === 'batch' && (
-        <BatchResultList
-          files={batchFiles}
-          renderResult={(result) => <ResultPanel result={result} />}
-          getLabel={(file) => (
-            <span className={`accordion-label ${file.result.final_label}`}>
-              {file.result.final_label.toUpperCase()}
-            </span>
-          )}
-        />
-      )}
-    </div>
+        ) : null
+      }
+      error={error}
+    />
   )
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useConcurrencySelector } from './useConcurrencySelector'
 
 /**
  * Shared state and logic for single-file + batch analysis workflows.
@@ -33,25 +34,7 @@ export function useAnalysisController({
     total: 0, completed: 0, failed: 0, current: null, running: [], runningCount: 0,
   })
   const [batchLoading, setBatchLoading] = useState(false)
-  const [concurrencyLevel, setConcurrencyLevel] = useState(2)
-
-  const handleConcurrencyChange = async (e) => {
-    const level = parseInt(e.target.value)
-    if (level === 4) {
-      const confirmed = window.confirm(
-        '⚠️ 병렬 처리 수준 4는 시스템 리소스를 많이 사용합니다.\n' +
-        'CPU 사용률이 높아지고 메모리 부하가 증가할 수 있습니다.\n\n' +
-        '계속하시겠습니까?'
-      )
-      if (!confirmed) return
-    }
-    setConcurrencyLevel(level)
-    try {
-      await window.api.setConcurrencyLevel(level)
-    } catch (err) {
-      alert(`병렬 처리 수준 설정 실패: ${err.message}`)
-    }
-  }
+  const { level: concurrencyLevel, handleChange: handleConcurrencyChange } = useConcurrencySelector(2)
 
   const handleSelectFile = async () => {
     try {
@@ -84,12 +67,11 @@ export function useAnalysisController({
     try {
       const paths = await window.api.selectBinFiles()
       if (paths && paths.length > 0) {
-        const pendingFiles = batchFiles.filter(f => f.status === 'pending')
-        const existingPaths = new Set(pendingFiles.map(f => f.path))
+        // I-6: 전체 batchFiles 기준으로 중복 체크 — completed/failed 결과 유지하며 append
+        const existingPaths = new Set(batchFiles.map(f => f.path))
         const newPaths = paths.filter(p => !existingPaths.has(p))
         const newFiles = newPaths.map(path => ({ path, status: 'pending', result: null, error: null }))
-        setBatchFiles([...pendingFiles, ...newFiles])
-        setBatchProgress({ total: 0, completed: 0, failed: 0, current: null, running: [], runningCount: 0 })
+        setBatchFiles(prev => [...prev, ...newFiles])
         if (newPaths.length < paths.length) {
           alert(`${paths.length - newPaths.length}개의 중복 파일이 제외되었습니다.`)
         }
@@ -104,40 +86,26 @@ export function useAnalysisController({
   }
 
   const handleRunBatch = async () => {
+    if (batchLoading) return  // C-1: 재진입 방지
     if (batchFiles.length === 0) { setError('먼저 분석할 파일을 추가해주세요.'); return }
     setBatchLoading(true)
     setError(null)
     setBatchFiles(prev => prev.map(f => ({ ...f, status: 'pending', result: null, error: null })))
     setBatchProgress({ total: batchFiles.length, completed: 0, failed: 0, current: null, running: [], runningCount: 0 })
 
+    offBatchProgress()  // C-1: 이전 리스너 선제 제거 후 재등록
     onBatchProgress((progress) => {
       setBatchProgress(progress)
-      // Mark newly started file as running (not yet in running array)
-      if (progress.current && !progress.currentResult && !progress.currentError) {
-        setBatchFiles(prev => prev.map(f =>
-          f.path === progress.current ? { ...f, status: 'running' } : f
-        ))
-      }
-      // Also mark any other currently running files
-      if (progress.running && progress.running.length > 0) {
-        setBatchFiles(prev => prev.map(f =>
-          progress.running.includes(f.path) ? { ...f, status: 'running' } : f
-        ))
-      }
-      if (progress.currentResult && progress.current) {
-        setBatchFiles(prev => prev.map(f =>
-          f.path === progress.current
-            ? { ...f, status: 'completed', result: progress.currentResult }
-            : f
-        ))
-      }
-      if (progress.currentError && progress.current) {
-        setBatchFiles(prev => prev.map(f =>
-          f.path === progress.current
-            ? { ...f, status: 'failed', error: progress.currentError }
-            : f
-        ))
-      }
+      // C-2: 4개 분기를 단일 setBatchFiles 호출로 통합 (O(N×4) → O(N))
+      setBatchFiles(prev => prev.map(f => {
+        if (progress.currentResult !== undefined && f.path === progress.current)
+          return { ...f, status: 'completed', result: progress.currentResult }
+        if (progress.currentError !== undefined && f.path === progress.current)
+          return { ...f, status: 'failed', error: progress.currentError }
+        if (f.path === progress.current || progress.running?.includes(f.path))
+          return { ...f, status: 'running' }
+        return f
+      }))
     })
 
     try {

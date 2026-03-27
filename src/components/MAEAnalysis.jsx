@@ -2,12 +2,8 @@ import React, { useState } from 'react'
 import './ModelInference.css'
 import './MAEAnalysis.css'
 import { useAnalysisController } from '../hooks/useAnalysisController'
-import { ConcurrencySelector } from './shared/ConcurrencySelector'
-import { BatchFileList } from './shared/BatchFileList'
-import { BatchProgressBar } from './shared/BatchProgressBar'
-import { SingleFileMode } from './shared/SingleFileMode'
-import { BatchActionButtons } from './shared/BatchActionButtons'
-import { BatchResultList } from './shared/BatchResultList'
+import { AnalysisModeLayout } from './shared/AnalysisModeLayout'
+import { LABEL_STRATEGIES } from '../utils/labelStrategies'
 
 // ─────────────────────────────────────────────
 // Score Gauge (0 ~ 2× threshold 표시)
@@ -95,11 +91,14 @@ function SpectrogramGrid({ rcp, images, isAnomaly }) {
 // Global score bar (분석 요약)
 // ─────────────────────────────────────────────
 function MAEScoreMeter({ result }) {
+  const entries = Object.entries(result.results)
+  if (entries.length === 0) return null
+
   const maxNorm  = result.max_normalized_score
   const isAnom   = result.final_verdict === 'anomaly'
   const fillPct  = Math.min(maxNorm / 2.0, 1.0) * 100
 
-  const worstEntry = Object.entries(result.results).reduce((acc, [rcp, d]) =>
+  const worstEntry = entries.reduce((acc, [rcp, d]) =>
     d.normalized_score > acc[1].normalized_score ? [rcp, d] : acc
   )
   const worstRcp  = worstEntry[0]
@@ -225,80 +224,31 @@ export function MAEAnalysis() {
   })
 
   return (
-    <div className="model-inference">
-      <div className="control-panel">
-        <div className="header-row">
-          <h2 className="section-title">MAE 이상 탐지</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div className="mae-model-badge">OrbitMAE1D · 재구성 오차 기반</div>
-            <div className="mode-toggle">
-              <button className={`mode-btn ${mode === 'single' ? 'active' : ''}`} onClick={() => setMode('single')}>단일 파일</button>
-              <button className={`mode-btn ${mode === 'batch'  ? 'active' : ''}`} onClick={() => setMode('batch')}>배치 처리</button>
-            </div>
-          </div>
-        </div>
-
-        {mode === 'single' ? (
-          <SingleFileMode
-            binPath={binPath}
-            loading={loading}
-            onSelectFile={handleSelectFile}
-            onRun={handleRunSingle}
-          />
-        ) : (
-          <>
-            <div className="batch-controls-row">
-              <button onClick={handleAddBatchFiles} className="btn-add-files" disabled={batchLoading}>+ 파일 추가</button>
-              <ConcurrencySelector
-                id="mae-concurrency-level"
-                value={concurrencyLevel}
-                onChange={handleConcurrencyChange}
-                disabled={batchLoading}
-              />
-            </div>
-
-            <BatchFileList
-              files={batchFiles}
-              onRemove={handleRemoveBatchFile}
-              disabled={batchLoading}
-              getLabel={(file) => (
-                <span className={`file-label ${file.result.final_verdict === 'anomaly' ? 'abnormal' : 'normal'}`}>
-                  {file.result.final_verdict.toUpperCase()}
-                </span>
-              )}
-            />
-
-            {batchFiles.length > 0 && (
-              <BatchProgressBar batchProgress={batchProgress} batchLoading={batchLoading} />
-            )}
-
-            <BatchActionButtons
-              filesCount={batchFiles.length}
-              batchLoading={batchLoading}
-              onRun={handleRunBatch}
-              onCancel={handleCancelBatch}
-            />
-          </>
-        )}
-
-        {error && (
-          <div className="error-message" style={{ marginTop: '0.75rem' }}>{error}</div>
-        )}
-      </div>
-
-      {mode === 'single' && result && <MAEResultPanel result={result} />}
-
-      {mode === 'batch' && (
-        <BatchResultList
-          files={batchFiles}
-          renderResult={(result) => <MAEResultPanel result={result} />}
-          getLabel={(file) => (
-            <span className={`accordion-label ${file.result.final_verdict === 'anomaly' ? 'abnormal' : 'normal'}`}>
-              {file.result.final_verdict.toUpperCase()}
-            </span>
-          )}
-        />
-      )}
-    </div>
+    <AnalysisModeLayout
+      title="MAE 이상 탐지"
+      headerBadge={<div className="mae-model-badge">OrbitMAE1D · 재구성 오차 기반</div>}
+      mode={mode}
+      setMode={setMode}
+      binPath={binPath}
+      loading={loading}
+      onSelectFile={handleSelectFile}
+      onRunSingle={handleRunSingle}
+      singleResult={result}
+      renderSingleResult={(r) => <MAEResultPanel result={r} />}
+      batchFiles={batchFiles}
+      batchProgress={batchProgress}
+      batchLoading={batchLoading}
+      concurrencyLevel={concurrencyLevel}
+      onConcurrencyChange={handleConcurrencyChange}
+      concurrencyId="mae-concurrency-level"
+      onAddFiles={handleAddBatchFiles}
+      onRemoveFile={handleRemoveBatchFile}
+      onRunBatch={handleRunBatch}
+      onCancelBatch={handleCancelBatch}
+      getFileLabel={LABEL_STRATEGIES.mae.getFileLabel}
+      getAccordionLabel={LABEL_STRATEGIES.mae.getAccordionLabel}
+      renderBatchResult={(r) => <MAEResultPanel result={r} />}
+      error={error}
+    />
   )
 }
