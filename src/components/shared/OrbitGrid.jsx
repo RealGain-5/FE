@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from '
 // ─────────────────────────────────────────────
 // 공유 상수
 // ─────────────────────────────────────────────
-export const RCP_ORDER = ['RCPA1', 'RCPA2', 'RCPB1', 'RCPB2']  // NIMS 표준 명칭
+export const RCP_ORDER = ['RCP1A', 'RCP1B', 'RCP2A', 'RCP2B']
 
 // timeline에서 이미지가 있는 셀을 읽기 순서(RCP행 → 윈도우열)로 평탄화
 function buildFlatList(timeline, rcpOrder) {

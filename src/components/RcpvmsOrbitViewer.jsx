@@ -16,6 +16,9 @@ const DEFAULT_WINDOW_SEC = 1.0
 
 function resolveOrbitData(result, scaleMode) {
   if (!result) return null
+  if (scaleMode === 'user') {
+    return { ...result, timeline: result.timeline_user ?? result.timeline_auto }
+  }
   return { ...result, timeline: result[`timeline_${scaleMode}`] ?? result.timeline_auto }
 }
 
@@ -33,6 +36,25 @@ function WindowSecInput({ id, value, onChange, disabled }) {
         disabled={disabled}
       />
       <span className="dmd-param-hint">초 단위 슬라이딩 윈도우</span>
+    </>
+  )
+}
+
+function UserAxisLimInput({ id, value, onChange, disabled }) {
+  return (
+    <>
+      <label className="dmd-param-label" htmlFor={id}>스케일</label>
+      <input
+        id={id}
+        type="number"
+        className="dmd-param-input"
+        value={value}
+        min={0.1} step={0.5}
+        placeholder="mil"
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      />
+      <span className="dmd-param-hint">±N mil 고정 (비워두면 미생성)</span>
     </>
   )
 }
@@ -82,14 +104,15 @@ function BatchResultItem({ file, scaleMode }) {
 // 탭 1: 단일 파일 모드
 // ─────────────────────────────────────────────
 function SingleFileTab() {
-  const [binPath, setBinPath]     = useState(null)
-  const [fileInfo, setFileInfo]   = useState(null)
-  const [result, setResult]       = useState(null)
-  const [loading, setLoading]     = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [error, setError]         = useState(null)
-  const [windowSec, setWindowSec] = useState(DEFAULT_WINDOW_SEC)
-  const [scaleMode, setScaleMode] = useState('auto')  // 로컬 state — 서버 왕복 없이 즉각 전환
+  const [binPath, setBinPath]         = useState(null)
+  const [fileInfo, setFileInfo]       = useState(null)
+  const [result, setResult]           = useState(null)
+  const [loading, setLoading]         = useState(false)
+  const [analyzing, setAnalyzing]     = useState(false)
+  const [error, setError]             = useState(null)
+  const [windowSec, setWindowSec]     = useState(DEFAULT_WINDOW_SEC)
+  const [userAxisLim, setUserAxisLim] = useState('')   // 문자열 — 비어있으면 미전송
+  const [scaleMode, setScaleMode]     = useState('user')
 
   const handleSelectFile = async () => {
     const filePath = await window.api.selectBinFile()
@@ -98,7 +121,7 @@ function SingleFileTab() {
     setFileInfo(null)
     setResult(null)
     setError(null)
-    setScaleMode('auto')
+    setScaleMode('user')
     setLoading(true)
     try {
       const info = await window.api.runRcpvmsInfo(filePath)
@@ -115,10 +138,10 @@ function SingleFileTab() {
     if (!binPath || analyzing) return
     setResult(null)
     setError(null)
-    setScaleMode('auto')
     setAnalyzing(true)
     try {
-      const res = await window.api.runRcpvmsOrbit(binPath, windowSec)
+      const ual = parseFloat(userAxisLim)
+      const res = await window.api.runRcpvmsOrbit(binPath, windowSec, ual > 0 ? ual : undefined)
       if (!res.success) throw new Error(res.error)
       setResult(res.data)
     } catch (err) {
@@ -146,6 +169,12 @@ function SingleFileTab() {
             onChange={setWindowSec}
             disabled={analyzing}
           />
+          <UserAxisLimInput
+            id="rcpvms-user-axis-lim"
+            value={userAxisLim}
+            onChange={setUserAxisLim}
+            disabled={analyzing}
+          />
         </div>
       )}
       onRun={handleRunOrbit}
@@ -162,12 +191,18 @@ function SingleFileTab() {
             <div className="dmd-result-header">
               <span className="dmd-result-meta">
                 {res.n_windows}개 윈도우 · {res.window_sec}초 단위
-                {scaleMode === 'fixed'
+                {scaleMode === 'user' && res.user_axis_lim != null
+                  ? ` · User ±${res.user_axis_lim.toFixed(1)} mil`
+                  : scaleMode === 'fixed'
                   ? ` · Fixed ±${res.fixed_axis_lim?.toFixed(1)} mil`
                   : ' · Auto Scale'}
                 {res.event_date && ` · ${res.event_date}`}
               </span>
-              <ScaleModeToggle scaleMode={scaleMode} onChange={setScaleMode} />
+              <ScaleModeToggle
+                scaleMode={scaleMode}
+                onChange={setScaleMode}
+                hasUser={!!res.timeline_user}
+              />
             </div>
             <OrbitGrid data={orbitData} />
           </div>
@@ -185,8 +220,9 @@ function BatchTab() {
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, failed: 0, running: [] })
   const [windowSec, setWindowSec]       = useState(DEFAULT_WINDOW_SEC)
+  const [userAxisLim, setUserAxisLim]   = useState('')
   const { level: concurrency, handleChange: handleConcurrencyChange } = useConcurrencySelector(2)
-  const [scaleMode, setScaleMode]       = useState('auto')  // 로컬 state — 서버 왕복 없이 즉각 전환
+  const [scaleMode, setScaleMode]       = useState('user')
 
   // 진행 이벤트 수신
   // BatchTab은 display:none 방식으로 항상 마운트 유지되므로 리스너가 앱 전체 생명주기 동안 등록됨.
@@ -264,7 +300,8 @@ function BatchTab() {
     setBatchLoading(true)
 
     try {
-      await window.api.runRcpvmsOrbitBatch(pendingPaths, windowSec)
+      const ual = parseFloat(userAxisLim)
+      await window.api.runRcpvmsOrbitBatch(pendingPaths, windowSec, ual > 0 ? ual : undefined)
     } finally {
       setBatchLoading(false)
     }
@@ -282,6 +319,7 @@ function BatchTab() {
   const pendingCount = files.filter(f => f.status === 'pending' || f.status === 'failed').length
   const finishedFiles = files.filter(f => f.status === 'completed' || f.status === 'failed')
   const hasCompletedFile = files.some(f => f.status === 'completed')
+  const hasUserTimeline = files.some(f => f.result?.timeline_user != null)
 
   return (
     <div>
@@ -314,6 +352,12 @@ function BatchTab() {
             id="rcpvms-batch-window"
             value={windowSec}
             onChange={setWindowSec}
+            disabled={batchLoading}
+          />
+          <UserAxisLimInput
+            id="rcpvms-batch-user-axis-lim"
+            value={userAxisLim}
+            onChange={setUserAxisLim}
             disabled={batchLoading}
           />
           <div style={{ marginLeft: '12px' }}>
@@ -373,7 +417,11 @@ function BatchTab() {
               처리 결과 ({finishedFiles.length}개)
             </span>
             {hasCompletedFile && (
-              <ScaleModeToggle scaleMode={scaleMode} onChange={setScaleMode} />
+              <ScaleModeToggle
+                scaleMode={scaleMode}
+                onChange={setScaleMode}
+                hasUser={hasUserTimeline}
+              />
             )}
           </div>
           <div className="rcpvms-batch-results">
