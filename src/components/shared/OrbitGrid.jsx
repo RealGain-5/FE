@@ -38,15 +38,24 @@ export const OrbitCell = memo(function OrbitCell({ src, isActive, rcp, wi, onOpe
 
 /**
  * 궤도 그리드 컴포넌트.
- * @param {{ data: { positions, n_windows, window_sec, timeline, orbit_map } }} props
+ * @param {{ data: { positions, n_windows, window_sec, timeline, orbit_map }, binPath?: string, windowSec?: number }} props
  * orbit_map이 없거나 빈 경우 모든 행이 "채널 없음"으로 표시된다.
+ * binPath와 windowSec이 제공되면 모달에서 스케일 재설정 기능을 사용할 수 있다.
  */
-export function OrbitGrid({ data }) {
-  const [modalIdx, setModalIdx] = useState(null)
-  const [zoom, setZoom]         = useState(1.0)
-  const modalBodyRef            = useRef(null)
+export function OrbitGrid({ data, binPath, windowSec: windowSecProp }) {
+  const [modalIdx, setModalIdx]           = useState(null)
+  const [zoom, setZoom]                   = useState(1.0)
+  const [scaleInput, setScaleInput]       = useState('')
+  const [overrideImage, setOverrideImage] = useState(null)
+  const [scaleLoading, setScaleLoading]   = useState(false)
+  const [scaleError, setScaleError]       = useState(null)
+  const modalBodyRef                      = useRef(null)
+  const scaleInputRef                     = useRef(null)
+
   const { n_windows, window_sec, timeline, orbit_map, positions: serverPositions } = data
+  const resolvedWindowSec = windowSecProp ?? window_sec ?? 1.0
   const safeOrbitMap = orbit_map ?? {}
+
   // 서버가 보낸 positions 순서를 우선 사용하고, 나머지 RCP_ORDER 항목은 "채널 없음"으로 표시
   const displayOrder = useMemo(() => {
     const serverSet = new Set(serverPositions ?? [])
@@ -66,6 +75,9 @@ export function OrbitGrid({ data }) {
   const closeModal = useCallback(() => {
     setModalIdx(null)
     setZoom(1.0)
+    setScaleInput('')
+    setOverrideImage(null)
+    setScaleError(null)
   }, [])
 
   const navigate = useCallback((dir) => {
@@ -76,6 +88,9 @@ export function OrbitGrid({ data }) {
       return next
     })
     setZoom(1.0)
+    setScaleInput('')
+    setOverrideImage(null)
+    setScaleError(null)
   }, [flatList.length])
 
   const openModal = useCallback((rcp, wi) => {
@@ -83,6 +98,9 @@ export function OrbitGrid({ data }) {
     if (idx !== undefined) {
       setModalIdx(idx)
       setZoom(1.0)
+      setScaleInput('')
+      setOverrideImage(null)
+      setScaleError(null)
     }
   }, [flatIdxMap])
 
@@ -115,6 +133,36 @@ export function OrbitGrid({ data }) {
 
   const canPrev = modalIdx !== null && modalIdx > 0
   const canNext = modalIdx !== null && modalIdx < flatList.length - 1
+
+  const handleApplyScale = useCallback(async () => {
+    if (!binPath || !modal || scaleLoading) return
+    const axisLim = parseFloat(scaleInput)
+    if (!axisLim || axisLim <= 0) {
+      setScaleError('0보다 큰 숫자를 입력하세요')
+      return
+    }
+    setScaleLoading(true)
+    setScaleError(null)
+    try {
+      const res = await window.api.runRcpvmsOrbitSingle(
+        binPath, modal.rcp, modal.wi, resolvedWindowSec, axisLim
+      )
+      if (!res.success) throw new Error(res.error || 'Unknown error')
+      if (res.data?.image_b64) {
+        setOverrideImage(res.data.image_b64)
+      }
+    } catch (err) {
+      setScaleError(err.message)
+    } finally {
+      setScaleLoading(false)
+    }
+  }, [binPath, modal, scaleInput, scaleLoading, resolvedWindowSec])
+
+  const handleScaleKeyDown = useCallback((e) => {
+    if (e.key === 'Enter') handleApplyScale()
+  }, [handleApplyScale])
+
+  const canApplyScale = !!binPath && !!modal
 
   return (
     <div className="dmd-orbit-section">
@@ -178,7 +226,7 @@ export function OrbitGrid({ data }) {
               style={{ cursor: zoom > 1.0 ? 'zoom-out' : 'zoom-in', overflow: 'hidden' }}
             >
               <img
-                src={modal.src}
+                src={overrideImage ?? modal.src}
                 alt={`${modal.rcp} 궤도`}
                 className="dmd-modal-img"
                 style={{ transform: `scale(${zoom})`, transition: 'transform 0.1s ease' }}
@@ -186,6 +234,46 @@ export function OrbitGrid({ data }) {
                 draggable={false}
               />
             </div>
+
+            {/* 궤도 스케일 재설정 바 */}
+            {canApplyScale && (
+              <div className="dmd-modal-scale-bar">
+                <span className="dmd-modal-scale-label">스케일</span>
+                <span className="dmd-modal-scale-unit">±</span>
+                <input
+                  ref={scaleInputRef}
+                  type="number"
+                  className="dmd-modal-scale-input"
+                  value={scaleInput}
+                  min={0.1}
+                  step={0.5}
+                  placeholder="mil"
+                  onChange={(e) => { setScaleInput(e.target.value); setScaleError(null) }}
+                  onKeyDown={handleScaleKeyDown}
+                  disabled={scaleLoading}
+                />
+                <span className="dmd-modal-scale-unit">mil</span>
+                <button
+                  className="dmd-modal-scale-btn"
+                  onClick={handleApplyScale}
+                  disabled={scaleLoading || !scaleInput}
+                >
+                  {scaleLoading ? '...' : '적용'}
+                </button>
+                {overrideImage && (
+                  <button
+                    className="dmd-modal-scale-reset"
+                    onClick={() => { setOverrideImage(null); setScaleInput(''); setScaleError(null) }}
+                    title="원본 스케일로 복원"
+                  >
+                    원본
+                  </button>
+                )}
+                {scaleError && (
+                  <span className="dmd-modal-scale-error">{scaleError}</span>
+                )}
+              </div>
+            )}
 
             {/* 네비게이션 바 */}
             <div className="dmd-modal-nav">

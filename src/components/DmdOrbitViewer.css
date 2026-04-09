@@ -125,6 +125,34 @@
   color: var(--text-muted);
 }
 
+/* ── 궤도 별 스케일 입력 그룹 ──────────────────────────── */
+.user-axis-lim-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.user-axis-lim-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.user-axis-lim-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-axis-lim-pos {
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--text-secondary);
+  min-width: 48px;
+  font-weight: 600;
+}
+
 /* ── Scale Mode 토글 버튼 ─────────────────────────────── */
 .btn-scale-mode {
   background: var(--bg-overlay);
@@ -497,4 +525,93 @@
   color: var(--text-muted);
   min-width: 60px;
   text-align: center;
+}
+
+/* ── 모달 스케일 재설정 바 ─────────────────────────────── */
+.dmd-modal-scale-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.dmd-modal-scale-label {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.dmd-modal-scale-unit {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.dmd-modal-scale-input {
+  width: 70px;
+  padding: 2px 6px;
+  font-size: 0.8rem;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.dmd-modal-scale-input:focus {
+  outline: none;
+  border-color: rgba(88, 166, 255, 0.5);
+}
+
+.dmd-modal-scale-input:disabled {
+  opacity: 0.4;
+}
+
+.dmd-modal-scale-btn {
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.dmd-modal-scale-btn:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.2);
+  border-color: rgba(88, 166, 255, 0.5);
+}
+
+.dmd-modal-scale-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.dmd-modal-scale-reset {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.dmd-modal-scale-reset:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.dmd-modal-scale-error {
+  font-size: 0.73rem;
+  color: var(--status-anomaly, #f87171);
+  white-space: nowrap;
 }

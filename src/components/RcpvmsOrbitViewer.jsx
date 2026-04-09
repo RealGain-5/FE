@@ -14,10 +14,29 @@ import { useConcurrencySelector } from '../hooks/useConcurrencySelector'
 
 const DEFAULT_WINDOW_SEC = 1.0
 
+/**
+ * 'user' 모드일 때 timeline_user[pos]를 우선 사용하되, null인 위치는 timeline_auto로 대체.
+ * timeline_user[pos]가 null 엔트리(비어있는 창)를 포함할 수 있어 window 단위로 병합한다.
+ */
 function resolveOrbitData(result, scaleMode) {
   if (!result) return null
   if (scaleMode === 'user') {
-    return { ...result, timeline: result.timeline_user ?? result.timeline_auto }
+    const tusr = result.timeline_user
+    const tauto = result.timeline_auto
+    if (!tusr) return { ...result, timeline: tauto }
+    // 위치 별로: user timeline이 있으면 사용, 없으면 auto로 대체
+    // 창 단위 병합: user[pos][wi]가 null이면 auto[pos][wi] 사용
+    const merged = {}
+    for (const pos of (result.positions ?? Object.keys(tauto ?? {}))) {
+      const uImgs = tusr[pos]
+      const aImgs = tauto?.[pos] ?? []
+      if (!uImgs) {
+        merged[pos] = aImgs
+      } else {
+        merged[pos] = uImgs.map((img, wi) => img ?? aImgs[wi] ?? null)
+      }
+    }
+    return { ...result, timeline: merged }
   }
   return { ...result, timeline: result[`timeline_${scaleMode}`] ?? result.timeline_auto }
 }
@@ -40,29 +59,43 @@ function WindowSecInput({ id, value, onChange, disabled }) {
   )
 }
 
-function UserAxisLimInput({ id, value, onChange, disabled }) {
+/**
+ * 궤도 별 사용자 스케일 입력.
+ * orbits: 표시할 궤도 위치 이름 배열 (예: ['RCPA1', 'RCPB1'])
+ * values: { [pos]: string } 형태의 입력값 맵
+ * onChange: (pos, value) => void
+ */
+function UserAxisLimInputs({ orbits, values, onChange, disabled }) {
+  if (!orbits || orbits.length === 0) return null
   return (
-    <>
-      <label className="dmd-param-label" htmlFor={id}>스케일</label>
-      <input
-        id={id}
-        type="number"
-        className="dmd-param-input"
-        value={value}
-        min={0.1} step={0.5}
-        placeholder="mil"
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-      />
-      <span className="dmd-param-hint">±N mil 고정 (비워두면 미생성)</span>
-    </>
+    <div className="user-axis-lim-group">
+      <span className="dmd-param-label" style={{ alignSelf: 'flex-start', paddingTop: '2px' }}>스케일</span>
+      <div className="user-axis-lim-fields">
+        {orbits.map((pos) => (
+          <div key={pos} className="user-axis-lim-row">
+            <span className="user-axis-lim-pos">{pos}</span>
+            <input
+              type="number"
+              className="dmd-param-input"
+              style={{ width: '80px' }}
+              value={values[pos] ?? ''}
+              min={0.1} step={0.5}
+              placeholder="mil"
+              onChange={(e) => onChange(pos, e.target.value)}
+              disabled={disabled}
+            />
+          </div>
+        ))}
+        <span className="dmd-param-hint" style={{ alignSelf: 'center' }}>±N mil (비워두면 auto)</span>
+      </div>
+    </div>
   )
 }
 
 // ─────────────────────────────────────────────
 // 배치 결과 항목 (파일 1개 결과 + 접기/펼치기)
 // ─────────────────────────────────────────────
-function BatchResultItem({ file, scaleMode }) {
+function BatchResultItem({ file, scaleMode, windowSec }) {
   const [expanded, setExpanded] = useState(true)
   const fileName = getFileName(file.path)
   const res = file.result
@@ -93,7 +126,7 @@ function BatchResultItem({ file, scaleMode }) {
       </div>
       {expanded && res && (
         <div className="rcpvms-batch-orbit-wrap">
-          <OrbitGrid data={orbitData} />
+          <OrbitGrid data={orbitData} binPath={file.path} windowSec={windowSec} />
         </div>
       )}
     </div>
@@ -104,15 +137,15 @@ function BatchResultItem({ file, scaleMode }) {
 // 탭 1: 단일 파일 모드
 // ─────────────────────────────────────────────
 function SingleFileTab() {
-  const [binPath, setBinPath]         = useState(null)
-  const [fileInfo, setFileInfo]       = useState(null)
-  const [result, setResult]           = useState(null)
-  const [loading, setLoading]         = useState(false)
-  const [analyzing, setAnalyzing]     = useState(false)
-  const [error, setError]             = useState(null)
-  const [windowSec, setWindowSec]     = useState(DEFAULT_WINDOW_SEC)
-  const [userAxisLim, setUserAxisLim] = useState('')   // 문자열 — 비어있으면 미전송
-  const [scaleMode, setScaleMode]     = useState('user')
+  const [binPath, setBinPath]               = useState(null)
+  const [fileInfo, setFileInfo]             = useState(null)
+  const [result, setResult]                 = useState(null)
+  const [loading, setLoading]               = useState(false)
+  const [analyzing, setAnalyzing]           = useState(false)
+  const [error, setError]                   = useState(null)
+  const [windowSec, setWindowSec]           = useState(DEFAULT_WINDOW_SEC)
+  const [userAxisLimMap, setUserAxisLimMap] = useState({})  // { pos: string }
+  const [scaleMode, setScaleMode]           = useState('auto')
 
   const handleSelectFile = async () => {
     const filePath = await window.api.selectBinFile()
@@ -121,7 +154,8 @@ function SingleFileTab() {
     setFileInfo(null)
     setResult(null)
     setError(null)
-    setScaleMode('user')
+    setScaleMode('auto')
+    setUserAxisLimMap({})
     setLoading(true)
     try {
       const info = await window.api.runRcpvmsInfo(filePath)
@@ -134,22 +168,38 @@ function SingleFileTab() {
     }
   }
 
+  const handleUserAxisLimChange = (pos, val) => {
+    setUserAxisLimMap(prev => ({ ...prev, [pos]: val }))
+  }
+
   const handleRunOrbit = async () => {
     if (!binPath || analyzing) return
     setResult(null)
     setError(null)
     setAnalyzing(true)
     try {
-      const ual = parseFloat(userAxisLim)
-      const res = await window.api.runRcpvmsOrbit(binPath, windowSec, ual > 0 ? ual : undefined)
+      // 유효한 양수 값만 맵에 포함
+      const ualMap = {}
+      for (const [pos, val] of Object.entries(userAxisLimMap)) {
+        const n = parseFloat(val)
+        if (n > 0) ualMap[pos] = n
+      }
+      const res = await window.api.runRcpvmsOrbit(
+        binPath, windowSec,
+        Object.keys(ualMap).length > 0 ? ualMap : undefined
+      )
       if (!res.success) throw new Error(res.error)
       setResult(res.data)
+      // user scale이 생성된 경우 자동으로 user 모드로 전환
+      if (res.data?.timeline_user) setScaleMode('user')
     } catch (err) {
       setError(err.message)
     } finally {
       setAnalyzing(false)
     }
   }
+
+  const orbitPositions = fileInfo?.orbit_map ? Object.keys(fileInfo.orbit_map) : []
 
   return (
     <FileOperationFlow
@@ -162,17 +212,17 @@ function SingleFileTab() {
       fileInfo={fileInfo}
       renderFileInfo={(info) => <RcpvmsFileInfoPanel fileInfo={info} />}
       renderParams={() => (
-        <div className="dmd-param-row">
+        <div className="dmd-param-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
           <WindowSecInput
             id="rcpvms-window-sec"
             value={windowSec}
             onChange={setWindowSec}
             disabled={analyzing}
           />
-          <UserAxisLimInput
-            id="rcpvms-user-axis-lim"
-            value={userAxisLim}
-            onChange={setUserAxisLim}
+          <UserAxisLimInputs
+            orbits={orbitPositions}
+            values={userAxisLimMap}
+            onChange={handleUserAxisLimChange}
             disabled={analyzing}
           />
         </div>
@@ -186,13 +236,20 @@ function SingleFileTab() {
       result={result}
       renderResult={(res) => {
         const orbitData = resolveOrbitData(res, scaleMode)
+        const ualMap = res.user_axis_lim_map
+        const userScaleLabel = ualMap
+          ? Object.entries(ualMap)
+              .filter(([, v]) => v != null)
+              .map(([pos, v]) => `${pos}:±${Number(v).toFixed(1)}`)
+              .join(' ')
+          : null
         return (
           <div className="result-container">
             <div className="dmd-result-header">
               <span className="dmd-result-meta">
                 {res.n_windows}개 윈도우 · {res.window_sec}초 단위
-                {scaleMode === 'user' && res.user_axis_lim != null
-                  ? ` · User ±${res.user_axis_lim.toFixed(1)} mil`
+                {scaleMode === 'user' && userScaleLabel
+                  ? ` · User [${userScaleLabel}] mil`
                   : scaleMode === 'fixed'
                   ? ` · Fixed ±${res.fixed_axis_lim?.toFixed(1)} mil`
                   : ' · Auto Scale'}
@@ -204,7 +261,7 @@ function SingleFileTab() {
                 hasUser={!!res.timeline_user}
               />
             </div>
-            <OrbitGrid data={orbitData} />
+            <OrbitGrid data={orbitData} binPath={binPath} windowSec={windowSec} />
           </div>
         )
       }}
@@ -220,9 +277,9 @@ function BatchTab() {
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchProgress, setBatchProgress] = useState({ total: 0, completed: 0, failed: 0, running: [] })
   const [windowSec, setWindowSec]       = useState(DEFAULT_WINDOW_SEC)
-  const [userAxisLim, setUserAxisLim]   = useState('')
+  const [userAxisLimMap, setUserAxisLimMap] = useState({})  // { pos: string }
   const { level: concurrency, handleChange: handleConcurrencyChange } = useConcurrencySelector(2)
-  const [scaleMode, setScaleMode]       = useState('user')
+  const [scaleMode, setScaleMode]       = useState('auto')
 
   // 진행 이벤트 수신
   // BatchTab은 display:none 방식으로 항상 마운트 유지되므로 리스너가 앱 전체 생명주기 동안 등록됨.
@@ -300,8 +357,15 @@ function BatchTab() {
     setBatchLoading(true)
 
     try {
-      const ual = parseFloat(userAxisLim)
-      await window.api.runRcpvmsOrbitBatch(pendingPaths, windowSec, ual > 0 ? ual : undefined)
+      const ualMap = {}
+      for (const [pos, val] of Object.entries(userAxisLimMap)) {
+        const n = parseFloat(val)
+        if (n > 0) ualMap[pos] = n
+      }
+      await window.api.runRcpvmsOrbitBatch(
+        pendingPaths, windowSec,
+        Object.keys(ualMap).length > 0 ? ualMap : undefined
+      )
     } finally {
       setBatchLoading(false)
     }
@@ -347,17 +411,17 @@ function BatchTab() {
 
       {/* 설정 행 */}
       {files.length > 0 && (
-        <div className="dmd-param-row">
+        <div className="dmd-param-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
           <WindowSecInput
             id="rcpvms-batch-window"
             value={windowSec}
             onChange={setWindowSec}
             disabled={batchLoading}
           />
-          <UserAxisLimInput
-            id="rcpvms-batch-user-axis-lim"
-            value={userAxisLim}
-            onChange={setUserAxisLim}
+          <UserAxisLimInputs
+            orbits={['RCPA1', 'RCPA2', 'RCPB1', 'RCPB2']}
+            values={userAxisLimMap}
+            onChange={(pos, val) => setUserAxisLimMap(prev => ({ ...prev, [pos]: val }))}
             disabled={batchLoading}
           />
           <div style={{ marginLeft: '12px' }}>
@@ -426,7 +490,7 @@ function BatchTab() {
           </div>
           <div className="rcpvms-batch-results">
             {finishedFiles.map(file => (
-              <BatchResultItem key={file.path} file={file} scaleMode={scaleMode} />
+              <BatchResultItem key={file.path} file={file} scaleMode={scaleMode} windowSec={windowSec} />
             ))}
           </div>
         </div>
