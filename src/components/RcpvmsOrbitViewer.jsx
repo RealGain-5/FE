@@ -126,7 +126,7 @@ function BatchResultItem({ file, scaleMode, windowSec }) {
       </div>
       {expanded && res && (
         <div className="rcpvms-batch-orbit-wrap">
-          <OrbitGrid data={orbitData} binPath={file.path} windowSec={windowSec} />
+          <OrbitGrid data={orbitData} binPath={file.path} windowSec={windowSec} scaleMode={scaleMode} />
         </div>
       )}
     </div>
@@ -191,7 +191,7 @@ function SingleFileTab() {
       if (!res.success) throw new Error(res.error)
       setResult(res.data)
       // user scale이 생성된 경우 자동으로 user 모드로 전환
-      if (res.data?.timeline_user) setScaleMode('user')
+      if (res.data?.user_axis_lim_map) setScaleMode('user')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -258,10 +258,10 @@ function SingleFileTab() {
               <ScaleModeToggle
                 scaleMode={scaleMode}
                 onChange={setScaleMode}
-                hasUser={!!res.timeline_user}
+                hasUser={!!res.user_axis_lim_map}
               />
             </div>
-            <OrbitGrid data={orbitData} binPath={binPath} windowSec={windowSec} />
+            <OrbitGrid data={orbitData} binPath={binPath} windowSec={windowSec} scaleMode={scaleMode} />
           </div>
         )
       }}
@@ -383,7 +383,7 @@ function BatchTab() {
   const pendingCount = files.filter(f => f.status === 'pending' || f.status === 'failed').length
   const finishedFiles = files.filter(f => f.status === 'completed' || f.status === 'failed')
   const hasCompletedFile = files.some(f => f.status === 'completed')
-  const hasUserTimeline = files.some(f => f.result?.timeline_user != null)
+  const hasUserTimeline = files.some(f => f.result?.user_axis_lim_map != null)
 
   return (
     <div>

@@ -38,21 +38,24 @@ export const OrbitCell = memo(function OrbitCell({ src, isActive, rcp, wi, onOpe
 
 /**
  * 궤도 그리드 컴포넌트.
- * @param {{ data: { positions, n_windows, window_sec, timeline, orbit_map }, binPath?: string, windowSec?: number }} props
+ * @param {{ data: { positions, n_windows, window_sec, timeline, orbit_map, per_window_axis_lim, fixed_axis_lim, user_axis_lim_map }, binPath?: string, windowSec?: number, scaleMode?: string }} props
  * orbit_map이 없거나 빈 경우 모든 행이 "채널 없음"으로 표시된다.
  * binPath와 windowSec이 제공되면 모달에서 스케일 재설정 기능을 사용할 수 있다.
+ * timeline이 없고 binPath가 있으면 rcpvms_orbit_single로 이미지를 지연 로딩한다.
  */
-export function OrbitGrid({ data, binPath, windowSec: windowSecProp }) {
+export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode = 'auto' }) {
   const [modalIdx, setModalIdx]           = useState(null)
   const [zoom, setZoom]                   = useState(1.0)
   const [scaleInput, setScaleInput]       = useState('')
   const [overrideImage, setOverrideImage] = useState(null)
   const [scaleLoading, setScaleLoading]   = useState(false)
   const [scaleError, setScaleError]       = useState(null)
+  const [lazyImages, setLazyImages]       = useState({})  // `${pos}:${wi}` → base64 string
   const modalBodyRef                      = useRef(null)
   const scaleInputRef                     = useRef(null)
 
-  const { n_windows, window_sec, timeline, orbit_map, positions: serverPositions } = data
+  const { n_windows, window_sec, timeline, orbit_map, positions: serverPositions,
+          per_window_axis_lim, fixed_axis_lim, user_axis_lim_map } = data
   const resolvedWindowSec = windowSecProp ?? window_sec ?? 1.0
   const safeOrbitMap = orbit_map ?? {}
 
@@ -63,7 +66,22 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp }) {
     return [...(serverPositions ?? RCP_ORDER), ...extras]
   }, [serverPositions])
 
-  const flatList = useMemo(() => buildFlatList(timeline, displayOrder), [timeline, displayOrder])
+  // timeline이 없으면 lazyImages로 합성한 가상 timeline을 flatList에 사용
+  const effectiveTimeline = useMemo(() => {
+    if (timeline && Object.keys(timeline).length > 0) return timeline
+    if (Object.keys(lazyImages).length === 0) return null
+    const synth = {}
+    for (const [key, b64] of Object.entries(lazyImages)) {
+      const colonIdx = key.indexOf(':')
+      const pos = key.slice(0, colonIdx)
+      const wi  = parseInt(key.slice(colonIdx + 1), 10)
+      if (!synth[pos]) synth[pos] = []
+      synth[pos][wi] = b64
+    }
+    return synth
+  }, [timeline, lazyImages])
+
+  const flatList = useMemo(() => buildFlatList(effectiveTimeline, displayOrder), [effectiveTimeline, displayOrder])
   // (rcp, wi) → flat index 역방향 맵 — openModal의 O(N) findIndex 제거
   const flatIdxMap = useMemo(() => {
     const map = {}
@@ -164,6 +182,39 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp }) {
 
   const canApplyScale = !!binPath && !!modal
 
+  // timeline이 없고 binPath가 있으면 rcpvms_orbit_single로 셀별 지연 로딩
+  useEffect(() => {
+    const positions = serverPositions ?? []
+    const nWindows = n_windows ?? 0
+    // timeline이 이미 있으면 지연 로딩 불필요
+    if (!binPath || positions.length === 0 || nWindows === 0) return
+    if (timeline && Object.keys(timeline).length > 0) return
+
+    setLazyImages({})
+
+    for (const pos of positions) {
+      for (let wi = 0; wi < nWindows; wi++) {
+        let axisLim
+        if (scaleMode === 'fixed') {
+          axisLim = fixed_axis_lim ?? 3.0
+        } else if (scaleMode === 'user' && user_axis_lim_map?.[pos] > 0) {
+          axisLim = user_axis_lim_map[pos]
+        } else {
+          axisLim = per_window_axis_lim?.[pos]?.[wi] ?? fixed_axis_lim ?? 3.0
+        }
+        window.api.runRcpvmsOrbitSingle(binPath, pos, wi, resolvedWindowSec, axisLim)
+          .then(res => {
+            if (res?.success && res.data?.image_b64) {
+              setLazyImages(prev => ({ ...prev, [`${pos}:${wi}`]: res.data.image_b64 }))
+            }
+          })
+          .catch(() => {})
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [binPath, (serverPositions ?? []).join(','), n_windows, scaleMode, resolvedWindowSec,
+      fixed_axis_lim, per_window_axis_lim, user_axis_lim_map, !!timeline])
+
   return (
     <div className="dmd-orbit-section">
       <div className="dmd-orbit-grid-wrap">
@@ -177,23 +228,26 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp }) {
         </div>
         {displayOrder.map((rcp) => {
           const hasData = rcp in safeOrbitMap
-          const rcpImages = timeline?.[rcp] ?? []
+          const rcpImages = timeline?.[rcp] ?? []  // pre-loaded images (may be empty)
           return (
             <div key={rcp} className="dmd-grid-row">
               <div className={`dmd-rcp-label-col ${hasData ? '' : 'no-data'}`}>
                 {rcp}
               </div>
               {hasData
-                ? rcpImages.map((src, wi) => (
-                    <OrbitCell
-                      key={wi}
-                      src={src}
-                      isActive={modal?.rcp === rcp && modal?.wi === wi}
-                      rcp={rcp}
-                      wi={wi}
-                      onOpen={openModal}
-                    />
-                  ))
+                ? Array.from({ length: n_windows }, (_, wi) => {
+                    const src = rcpImages[wi] ?? lazyImages[`${rcp}:${wi}`] ?? null
+                    return (
+                      <OrbitCell
+                        key={wi}
+                        src={src}
+                        isActive={modal?.rcp === rcp && modal?.wi === wi}
+                        rcp={rcp}
+                        wi={wi}
+                        onOpen={openModal}
+                      />
+                    )
+                  })
                 : <div className="dmd-no-channel">채널 없음</div>
               }
             </div>
