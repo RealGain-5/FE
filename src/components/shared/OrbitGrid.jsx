@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react'
+import { useObjectUrlImage } from '../../hooks/useObjectUrlImage'
+import { imagePayloadToSource } from '../../utils/imageSource'
 
 // ─────────────────────────────────────────────
 // 공유 상수
@@ -42,17 +44,23 @@ export const OrbitCell = memo(function OrbitCell({ src, isActive, rcp, wi, onOpe
  * orbit_map이 없거나 빈 경우 모든 행이 "채널 없음"으로 표시된다.
  * binPath와 windowSec이 제공되면 모달에서 스케일 재설정 기능을 사용할 수 있다.
  * timeline이 없고 binPath가 있으면 rcpvms_orbit_single로 이미지를 지연 로딩한다.
+ * filterMode: 'raw' | '1x' | '2x' | 'broadband' (기본값: '1x')
  */
-export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode = 'auto' }) {
+export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode = 'auto', filterMode = '1x' }) {
   const [modalIdx, setModalIdx]           = useState(null)
   const [zoom, setZoom]                   = useState(1.0)
   const [scaleInput, setScaleInput]       = useState('')
-  const [overrideImage, setOverrideImage] = useState(null)
   const [scaleLoading, setScaleLoading]   = useState(false)
   const [scaleError, setScaleError]       = useState(null)
   const [lazyImages, setLazyImages]       = useState({})  // `${pos}:${wi}` → base64 string
+  const [lazyError, setLazyError]         = useState(null)
+  const [gridVisible, setGridVisible]     = useState(false)
   const modalBodyRef                      = useRef(null)
   const scaleInputRef                     = useRef(null)
+  const gridWrapRef                       = useRef(null)
+  const scaleRequestIdRef                 = useRef(0)
+  const lazyRequestIdRef                  = useRef(0)
+  const { src: overrideImage, setImage: setOverrideImage, clear: clearOverrideImage } = useObjectUrlImage()
 
   const { n_windows, window_sec, timeline, orbit_map, positions: serverPositions,
           per_window_axis_lim, fixed_axis_lim, user_axis_lim_map } = data
@@ -91,14 +99,16 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
   const modal = modalIdx !== null ? flatList[modalIdx] : null
 
   const closeModal = useCallback(() => {
+    scaleRequestIdRef.current += 1
     setModalIdx(null)
     setZoom(1.0)
     setScaleInput('')
-    setOverrideImage(null)
+    clearOverrideImage()
     setScaleError(null)
-  }, [])
+  }, [clearOverrideImage])
 
   const navigate = useCallback((dir) => {
+    scaleRequestIdRef.current += 1
     setModalIdx(prev => {
       if (prev === null) return null
       const next = prev + dir
@@ -107,20 +117,33 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
     })
     setZoom(1.0)
     setScaleInput('')
-    setOverrideImage(null)
+    clearOverrideImage()
     setScaleError(null)
-  }, [flatList.length])
+  }, [flatList.length, clearOverrideImage])
 
   const openModal = useCallback((rcp, wi) => {
     const idx = flatIdxMap[`${rcp}:${wi}`]
     if (idx !== undefined) {
+      scaleRequestIdRef.current += 1
       setModalIdx(idx)
       setZoom(1.0)
       setScaleInput('')
-      setOverrideImage(null)
+      clearOverrideImage()
       setScaleError(null)
     }
-  }, [flatIdxMap])
+  }, [flatIdxMap, clearOverrideImage])
+
+  // 그리드가 뷰포트에 들어오면 이미지 로딩 허가 (오프스크린 탭 낭비 방지)
+  useEffect(() => {
+    const el = gridWrapRef.current
+    if (!el) { setGridVisible(true); return }
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setGridVisible(true); obs.disconnect() } },
+      { threshold: 0.01 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   // 키보드: 방향키 이동, Escape 닫기
   useEffect(() => {
@@ -154,6 +177,9 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
 
   const handleApplyScale = useCallback(async () => {
     if (!binPath || !modal || scaleLoading) return
+    const requestId = scaleRequestIdRef.current + 1
+    scaleRequestIdRef.current = requestId
+    const targetKey = `${modal.rcp}:${modal.wi}`
     const axisLim = parseFloat(scaleInput)
     if (!axisLim || axisLim <= 0) {
       setScaleError('0보다 큰 숫자를 입력하세요')
@@ -163,18 +189,22 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
     setScaleError(null)
     try {
       const res = await window.api.runRcpvmsOrbitSingle(
-        binPath, modal.rcp, modal.wi, resolvedWindowSec, axisLim
+        binPath, modal.rcp, modal.wi, resolvedWindowSec, axisLim, filterMode
       )
+      if (scaleRequestIdRef.current !== requestId) return
       if (!res.success) throw new Error(res.error || 'Unknown error')
-      if (res.data?.image_b64) {
-        setOverrideImage(res.data.image_b64)
-      }
+      const currentKey = modalIdx !== null ? `${flatList[modalIdx]?.rcp}:${flatList[modalIdx]?.wi}` : null
+      if (currentKey !== targetKey) return
+      const payload = imagePayloadToSource(res.data)
+      if (!payload.source) throw new Error(payload.error || 'Unsupported image payload')
+      setOverrideImage(payload.source, payload.objectUrl)
     } catch (err) {
+      if (scaleRequestIdRef.current !== requestId) return
       setScaleError(err.message)
     } finally {
-      setScaleLoading(false)
+      if (scaleRequestIdRef.current === requestId) setScaleLoading(false)
     }
-  }, [binPath, modal, scaleInput, scaleLoading, resolvedWindowSec])
+  }, [binPath, modal, modalIdx, flatList, scaleInput, scaleLoading, resolvedWindowSec, filterMode, setOverrideImage])
 
   const handleScaleKeyDown = useCallback((e) => {
     if (e.key === 'Enter') handleApplyScale()
@@ -182,16 +212,22 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
 
   const canApplyScale = !!binPath && !!modal
 
-  // timeline이 없고 binPath가 있으면 rcpvms_orbit_single로 셀별 지연 로딩
+  // timeline이 없고 binPath가 있으면 rcpvms_orbit_multi로 전체 셀을 1회 IPC로 일괄 로딩.
+  // gridVisible(IntersectionObserver)이 true가 될 때까지 요청을 지연해 오프스크린 낭비를 방지.
   useEffect(() => {
+    if (!gridVisible) return
     const positions = serverPositions ?? []
     const nWindows = n_windows ?? 0
-    // timeline이 이미 있으면 지연 로딩 불필요
     if (!binPath || positions.length === 0 || nWindows === 0) return
     if (timeline && Object.keys(timeline).length > 0) return
 
+    const requestId = lazyRequestIdRef.current + 1
+    lazyRequestIdRef.current = requestId
     setLazyImages({})
+    setLazyError(null)
+    let cancelled = false
 
+    const items = []
     for (const pos of positions) {
       for (let wi = 0; wi < nWindows; wi++) {
         let axisLim
@@ -202,21 +238,47 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
         } else {
           axisLim = per_window_axis_lim?.[pos]?.[wi] ?? fixed_axis_lim ?? 3.0
         }
-        window.api.runRcpvmsOrbitSingle(binPath, pos, wi, resolvedWindowSec, axisLim)
-          .then(res => {
-            if (res?.success && res.data?.image_b64) {
-              setLazyImages(prev => ({ ...prev, [`${pos}:${wi}`]: res.data.image_b64 }))
-            }
-          })
-          .catch(() => {})
+        items.push({ pos, wi, axis_lim: axisLim })
       }
     }
+
+    window.api.runRcpvmsOrbitMulti(binPath, resolvedWindowSec, filterMode, items)
+      .then(res => {
+        if (cancelled || lazyRequestIdRef.current !== requestId) return
+        if (!res?.success) throw new Error(res?.error || 'Orbit image loading failed')
+        if (res?.success && res.data?.images) {
+          const newImages = {}
+          for (const { pos, wi, image_b64 } of res.data.images) {
+            newImages[`${pos}:${wi}`] = image_b64
+          }
+          setLazyImages(newImages)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled && lazyRequestIdRef.current === requestId) {
+          setLazyError(err.message || 'Orbit image loading failed')
+        }
+      })
+
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [binPath, (serverPositions ?? []).join(','), n_windows, scaleMode, resolvedWindowSec,
-      fixed_axis_lim, per_window_axis_lim, user_axis_lim_map, !!timeline])
+  }, [gridVisible, binPath, (serverPositions ?? []).join(','), n_windows, scaleMode, filterMode,
+      resolvedWindowSec, fixed_axis_lim, per_window_axis_lim, user_axis_lim_map, !!timeline])
 
   return (
-    <div className="dmd-orbit-section">
+    <div className="dmd-orbit-section" ref={gridWrapRef}>
+      <div className="dmd-orbit-filter-note">
+        {filterMode === '1x' && '1X 동기 성분 필터 적용 — 회전 주파수를 자동 탐지하여 해당 성분만 추출합니다.'}
+        {filterMode === '2x' && '2X 성분 필터 적용 — 2배 회전 주파수(불균형/미스얼라인먼트 특징) 성분만 추출합니다.'}
+        {filterMode === 'broadband' && '브로드밴드 필터 적용 — DC 드리프트만 제거하고 전체 주파수 성분을 표시합니다.'}
+        {filterMode === 'raw' && 'Raw 신호 — 필터 없음, DC offset만 제거합니다.'}
+        {filterMode === 'overlay' && 'Overlay — Raw(회백) · BB(황색) · 2X(진홍) · 1X(하늘) 4가지 궤도를 동일 스케일로 겹쳐 표시합니다.'}
+      </div>
+      {lazyError && (
+        <div className="dmd-orbit-filter-note" style={{ color: 'var(--status-anomaly)' }}>
+          {lazyError}
+        </div>
+      )}
       <div className="dmd-orbit-grid-wrap">
         <div className="dmd-grid-header-row">
           <div className="dmd-rcp-label-col" />
@@ -317,7 +379,10 @@ export function OrbitGrid({ data, binPath, windowSec: windowSecProp, scaleMode =
                 {overrideImage && (
                   <button
                     className="dmd-modal-scale-reset"
-                    onClick={() => { setOverrideImage(null); setScaleInput(''); setScaleError(null) }}
+                    onClick={() => {
+                      scaleRequestIdRef.current += 1
+                      clearOverrideImage(); setScaleInput(''); setScaleError(null)
+                    }}
                     title="원본 스케일로 복원"
                   >
                     원본

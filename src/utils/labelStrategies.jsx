@@ -1,5 +1,9 @@
 import React from 'react'
 
+function safeUpper(value, fallback = 'unknown') {
+  return String(value ?? fallback).toUpperCase()
+}
+
 /**
  * 분석 타입별 BatchFileList / BatchResultList 레이블 렌더링 전략.
  *
@@ -9,24 +13,24 @@ import React from 'react'
 export const LABEL_STRATEGIES = {
   ensemble: {
     getFileLabel: (file) => {
-      const label = file.result.final_label
-      return <span className={`file-label ${label}`}>{label.toUpperCase()}</span>
+      const label = file.result?.final_label ?? 'unknown'
+      return <span className={`file-label ${label}`}>{safeUpper(label)}</span>
     },
     getAccordionLabel: (file) => {
-      const label = file.result.final_label
-      return <span className={`accordion-label ${label}`}>{label.toUpperCase()}</span>
+      const label = file.result?.final_label ?? 'unknown'
+      return <span className={`accordion-label ${label}`}>{safeUpper(label)}</span>
     },
   },
   mae: {
     getFileLabel: (file) => {
-      const verdict = file.result.final_verdict
+      const verdict = file.result?.final_verdict ?? 'unknown'
       const css = verdict === 'anomaly' ? 'abnormal' : 'normal'
-      return <span className={`file-label ${css}`}>{verdict.toUpperCase()}</span>
+      return <span className={`file-label ${css}`}>{safeUpper(verdict)}</span>
     },
     getAccordionLabel: (file) => {
-      const verdict = file.result.final_verdict
+      const verdict = file.result?.final_verdict ?? 'unknown'
       const css = verdict === 'anomaly' ? 'abnormal' : 'normal'
-      return <span className={`accordion-label ${css}`}>{verdict.toUpperCase()}</span>
+      return <span className={`accordion-label ${css}`}>{safeUpper(verdict)}</span>
     },
   },
 }

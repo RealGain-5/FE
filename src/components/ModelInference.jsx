@@ -1,38 +1,41 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import './ModelInference.css'
 import { useAnalysisController } from '../hooks/useAnalysisController'
 import { AnalysisModeLayout } from './shared/AnalysisModeLayout'
 import { getFileName } from '../utils/fileUtils'
 import { LABEL_STRATEGIES } from '../utils/labelStrategies'
 
-// ─────────────────────────────────────────────
-// RCP 카드 컴포넌트 (탭 포함)
-// ─────────────────────────────────────────────
+// ?????????????????????????????????????????????
+// RCP 移대뱶 而댄룷?뚰듃 (???ы븿)
+// ?????????????????????????????????????????????
 function RCPCard({ rcp, data, visualization }) {
   const [activeTab, setActiveTab] = useState('orbit')
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [showModelDetail, setShowModelDetail] = useState(false)
-  const hasEnsemble = !!(data.model_predictions)
+  const hasEnsemble = !!(data?.model_predictions)
+  const probabilities = data?.probabilities ?? {}
 
   const tabs = [
-    { id: 'orbit',    label: '궤도' },
+    { id: 'orbit',    label: 'Orbit' },
     { id: 'heatmap',  label: 'Grad-CAM' },
-    { id: 'overlay',  label: '오버레이' },
+    { id: 'overlay',  label: 'Overlay' },
     { id: 'ig',       label: 'IG' },
-    { id: 'timeline', label: '타임라인' },
+    { id: 'timeline', label: 'Timeline' },
   ]
 
   const getImagePath = () => {
     if (!visualization) return null
     let path = ''
     if (activeTab === 'orbit')    path = visualization.orbit
-    else if (activeTab === 'heatmap')  path = visualization.gradcam.heatmap
-    else if (activeTab === 'overlay')  path = visualization.gradcam.overlay
+    else if (activeTab === 'heatmap')  path = visualization.gradcam?.heatmap
+    else if (activeTab === 'overlay')  path = visualization.gradcam?.overlay
     else if (activeTab === 'ig')       path = visualization.ig?.resnet_overlay
-    else if (activeTab === 'timeline') path = visualization.temporal[timelineIndex]
+    else if (activeTab === 'timeline') path = visualization.temporal?.[timelineIndex]
     if (!path) return null
     return `media://${path.replace(/\\/g, '/')}`
   }
+
+  const imagePath = getImagePath()
 
   return (
     <div className="rcp-card">
@@ -44,9 +47,9 @@ function RCPCard({ rcp, data, visualization }) {
               fontSize: '0.65rem', fontWeight: 600, padding: '1px 6px',
               borderRadius: '4px', background: '#7c3aed', color: '#fff',
               letterSpacing: '0.03em'
-            }}>앙상블</span>
+            }}>Ensemble</span>
           )}
-          <span className={`status-badge ${data.prediction}`}>{data.prediction}</span>
+          <span className={`status-badge ${data?.prediction ?? 'unknown'}`}>{data?.prediction ?? 'unknown'}</span>
         </div>
       </div>
 
@@ -68,12 +71,10 @@ function RCPCard({ rcp, data, visualization }) {
       <div className="visualization-area">
         {visualization ? (
           <>
-            {activeTab === 'ig' && !visualization?.ig?.resnet_overlay ? (
-              <div style={{ color: '#64748b', fontSize: '0.9rem' }}>
-                IG 데이터 없음 (비다중스케일 모델 또는 IG 비활성화)
-              </div>
+            {imagePath ? (
+              <img src={imagePath} alt="Vis" className="vis-image" />
             ) : (
-              <img src={getImagePath()} alt="Vis" className="vis-image" />
+              <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Visualization data is not available.</div>
             )}
             {activeTab === 'timeline' && (
               <div style={{
@@ -92,12 +93,12 @@ function RCPCard({ rcp, data, visualization }) {
             )}
           </>
         ) : (
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>시각화 준비 중</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Visualization is preparing.</div>
         )}
       </div>
 
       <div className="prob-list">
-        {Object.entries(data.probabilities).map(([cls, prob]) => (
+        {Object.entries(probabilities).map(([cls, prob]) => (
           <div key={cls} className="prob-row">
             <div className="prob-info">
               <span style={{ textTransform: 'capitalize' }}>{cls}</span>
@@ -120,18 +121,18 @@ function RCPCard({ rcp, data, visualization }) {
               display: 'flex', alignItems: 'center', gap: '4px', width: '100%'
             }}
           >
-            <span style={{ fontSize: '0.65rem' }}>{showModelDetail ? '▲' : '▼'}</span>
-            개별 모델 예측
+            <span style={{ fontSize: '0.65rem' }}>{showModelDetail ? '-' : '+'}</span>
+            Model details
           </button>
           {showModelDetail && (() => {
-            const firstMp = data.model_predictions?.resnet ?? data.model_predictions?.cnn1d
-            const classKeys = firstMp ? Object.keys(firstMp.probabilities) : ['normal']
+            const firstMp = data?.model_predictions?.resnet ?? data?.model_predictions?.cnn1d
+            const classKeys = firstMp?.probabilities ? Object.keys(firstMp.probabilities) : ['normal']
             return (
               <table style={{ width: '100%', fontSize: '0.72rem', borderCollapse: 'collapse', marginTop: '4px' }}>
                 <thead>
                   <tr style={{ color: 'var(--text-secondary)' }}>
-                    <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>모델</th>
-                    <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>판정</th>
+                    <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>紐⑤뜽</th>
+                    <th style={{ textAlign: 'left', padding: '2px 4px', fontWeight: 500 }}>?먯젙</th>
                     {classKeys.map((cls) => (
                       <th key={cls} style={{ textAlign: 'right', padding: '2px 4px', fontWeight: 500 }}>{cls}</th>
                     ))}
@@ -139,7 +140,7 @@ function RCPCard({ rcp, data, visualization }) {
                 </thead>
                 <tbody>
                   {[{ key: 'resnet', label: 'ResNet' }, { key: 'cnn1d', label: '1D CNN' }].map(({ key, label }) => {
-                    const mp = data.model_predictions[key]
+                    const mp = data?.model_predictions?.[key]
                     if (!mp) return null
                     return (
                       <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
@@ -152,7 +153,7 @@ function RCPCard({ rcp, data, visualization }) {
                         </td>
                         {classKeys.map((cls) => (
                           <td key={cls} style={{ padding: '2px 4px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                            {((mp.probabilities[cls] ?? 0) * 100).toFixed(1)}%
+                            {((mp.probabilities?.[cls] ?? 0) * 100).toFixed(1)}%
                           </td>
                         ))}
                       </tr>
@@ -168,18 +169,21 @@ function RCPCard({ rcp, data, visualization }) {
   )
 }
 
-// ─────────────────────────────────────────────
-// 결과 패널
-// ─────────────────────────────────────────────
+// ?????????????????????????????????????????????
+// 寃곌낵 ?⑤꼸
+// ?????????????????????????????????????????????
 function ResultPanel({ result }) {
+  const finalLabel = result?.final_label ?? 'unknown'
+  const rcpResults = result?.results ?? {}
+
   return (
     <div className="result-container">
-      <div className={`result-overview ${result.final_label}`}>
-        <span className="verdict-label">최종 분석 판정</span>
-        <span className="verdict-value">{result.final_label.toUpperCase()}</span>
+      <div className={`result-overview ${finalLabel}`}>
+        <span className="verdict-label">理쒖쥌 遺꾩꽍 ?먯젙</span>
+        <span className="verdict-value">{String(finalLabel).toUpperCase()}</span>
       </div>
       <div className="rcp-grid">
-        {Object.entries(result.results).map(([rcp, data]) => (
+        {Object.entries(rcpResults).map(([rcp, data]) => (
           <RCPCard
             key={rcp}
             rcp={rcp}
@@ -192,9 +196,9 @@ function ResultPanel({ result }) {
   )
 }
 
-// ─────────────────────────────────────────────
-// 메인 컴포넌트
-// ─────────────────────────────────────────────
+// ?????????????????????????????????????????????
+// 硫붿씤 而댄룷?뚰듃
+// ?????????????????????????????????????????????
 export function ModelInference() {
   const {
     mode, setMode,
@@ -217,19 +221,18 @@ export function ModelInference() {
     onBatchProgress: window.api.onBatchProgress,
     offBatchProgress: window.api.offBatchProgress,
     onSingleSuccess: async (binPath, data) => {
-      await window.api.saveLog('INFERENCE', `분석 완료: ${data.final_label} (${binPath})`)
+      await window.api.saveLog('INFERENCE', `遺꾩꽍 ?꾨즺: ${data.final_label} (${binPath})`)
     },
     onBatchComplete: async (paths, response) => {
       if (response.success) {
         await window.api.saveLog(
           'BATCH_INFERENCE',
-          `배치 분석 완료: ${paths.length}개 파일 (성공: ${response.summary?.completed ?? 0}, 실패: ${response.summary?.failed ?? 0})`
+          `諛곗튂 遺꾩꽍 ?꾨즺: ${paths.length}媛??뚯씪 (?깃났: ${response.summary?.completed ?? 0}, ?ㅽ뙣: ${response.summary?.failed ?? 0})`
         )
       }
     },
   })
 
-  // 개별 파일 재분석
   const handleRetryFile = async (filePath) => {
     setBatchFiles(prev =>
       prev.map(f => f.path === filePath ? { ...f, status: 'running', error: null } : f)
@@ -250,20 +253,20 @@ export function ModelInference() {
     }
   }
 
-  // 공통 내보내기 실행 헬퍼
+  // 怨듯넻 ?대낫?닿린 ?ㅽ뻾 ?ы띁
   const runExport = async (apiCall, data, label) => {
     try {
       const response = await apiCall(data)
-      if (response.success) alert(`${label} 파일이 저장되었습니다.\n${response.filePath}`)
-      else if (!response.cancelled) alert(`내보내기 실패: ${response.error}`)
+      if (response.success) alert(`${label} ?뚯씪????λ릺?덉뒿?덈떎.\n${response.filePath}`)
+      else if (!response.cancelled) alert(`?대낫?닿린 ?ㅽ뙣: ${response.error}`)
     } catch (err) {
-      alert(`내보내기 오류: ${err.message}`)
+      alert(`?대낫?닿린 ?ㅻ쪟: ${err.message}`)
     }
   }
 
   const handleExportJson = () => {
     const completedFiles = batchFiles.filter(f => f.status === 'completed')
-    if (completedFiles.length === 0) { alert('내보낼 결과가 없습니다.'); return }
+    if (completedFiles.length === 0) { alert('?대낫??寃곌낵媛 ?놁뒿?덈떎.'); return }
     const exportData = {
       timestamp: new Date().toISOString(),
       totalFiles: batchFiles.length,
@@ -292,7 +295,7 @@ export function ModelInference() {
 
   return (
     <AnalysisModeLayout
-      title="Orbit 이상 탐지"
+      title="Orbit ?댁긽 ?먯?"
       mode={mode}
       setMode={setMode}
       binPath={binPath}
@@ -318,9 +321,9 @@ export function ModelInference() {
       batchExtraControls={
         batchFiles.some(f => f.status === 'completed') ? (
           <div className="export-buttons">
-            <button onClick={handleExportJson}  className="btn-export">JSON 내보내기</button>
-            <button onClick={handleExportCsv}   className="btn-export">CSV 내보내기</button>
-            <button onClick={handleExportExcel} className="btn-export">Excel 내보내기 (이미지 포함)</button>
+            <button onClick={handleExportJson}  className="btn-export">JSON ?대낫?닿린</button>
+            <button onClick={handleExportCsv}   className="btn-export">CSV ?대낫?닿린</button>
+            <button onClick={handleExportExcel} className="btn-export">Excel ?대낫?닿린 (?대?吏 ?ы븿)</button>
           </div>
         ) : null
       }

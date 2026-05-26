@@ -20,10 +20,12 @@ export function useConcurrencySelector(initial = 2) {
       )
       if (!confirmed) return
     }
+    const previousLevel = level
     setLevel(newLevel)
     try {
       await window.api.setConcurrencyLevel(newLevel)
     } catch (err) {
+      setLevel(previousLevel)
       alert(`병렬 처리 수준 설정 실패: ${err.message}`)
     }
   }

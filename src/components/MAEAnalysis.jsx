@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import './ModelInference.css'
 import './MAEAnalysis.css'
 import { useAnalysisController } from '../hooks/useAnalysisController'
@@ -9,15 +9,16 @@ import { LABEL_STRATEGIES } from '../utils/labelStrategies'
 // Score Gauge (0 ~ 2× threshold 표시)
 // ─────────────────────────────────────────────
 function MAEScoreGauge({ normalizedScore }) {
-  const fillPct = Math.min(normalizedScore / 2.0, 1.0) * 100
-  const isAnomaly = normalizedScore >= 1.0
+  const safeScore = Number.isFinite(normalizedScore) ? normalizedScore : 0
+  const fillPct = Math.min(safeScore / 2.0, 1.0) * 100
+  const isAnomaly = safeScore >= 1.0
 
   return (
     <div className="prob-row">
       <div className="prob-info">
         <span>재구성 오차 (정규화)</span>
         <strong style={{ color: isAnomaly ? 'var(--status-anomaly)' : 'var(--status-normal)' }}>
-          {normalizedScore.toFixed(3)}
+          {safeScore.toFixed(3)}
         </strong>
       </div>
       <div className="prob-track" style={{ position: 'relative' }}>
@@ -91,15 +92,15 @@ function SpectrogramGrid({ rcp, images, isAnomaly }) {
 // Global score bar (분석 요약)
 // ─────────────────────────────────────────────
 function MAEScoreMeter({ result }) {
-  const entries = Object.entries(result.results)
+  const entries = Object.entries(result?.results ?? {})
   if (entries.length === 0) return null
 
-  const maxNorm  = result.max_normalized_score
+  const maxNorm  = Number.isFinite(result.max_normalized_score) ? result.max_normalized_score : 0
   const isAnom   = result.final_verdict === 'anomaly'
   const fillPct  = Math.min(maxNorm / 2.0, 1.0) * 100
 
   const worstEntry = entries.reduce((acc, [rcp, d]) =>
-    d.normalized_score > acc[1].normalized_score ? [rcp, d] : acc
+    (d.normalized_score ?? 0) > (acc[1].normalized_score ?? 0) ? [rcp, d] : acc
   )
   const worstRcp  = worstEntry[0]
   const worstData = worstEntry[1]
@@ -109,7 +110,7 @@ function MAEScoreMeter({ result }) {
       <div className="mae-meter-left">
         <div className="mae-meter-label">최대 재구성 오차</div>
         <div className={`mae-meter-value ${isAnom ? 'val-red' : 'val-green'}`}>
-          {worstData.score.toFixed(5)}
+          {(worstData.score ?? 0).toFixed(5)}
         </div>
         <div className="mae-meter-sub">
           {worstRcp} · 정규화 {maxNorm.toFixed(3)}×
@@ -120,7 +121,7 @@ function MAEScoreMeter({ result }) {
         <div className="mae-bar-track">
           <div className="mae-bar-fill" style={{ width: `${fillPct}%` }} />
           <div className="mae-bar-threshold" style={{ left: '50%' }}>
-            <span className="mae-thresh-label">임계값 {result.threshold.toFixed(5)}</span>
+            <span className="mae-thresh-label">임계값 {(result.threshold ?? 0).toFixed(5)}</span>
           </div>
         </div>
         <div className="mae-bar-ticks">
@@ -145,9 +146,19 @@ function MAEScoreMeter({ result }) {
 // 결과 패널
 // ─────────────────────────────────────────────
 function MAEResultPanel({ result }) {
-  const [activeRcp, setActiveRcp] = useState(Object.keys(result.results)[0])
-  const rcpList = Object.keys(result.results)
-  const rcpData = result.results[activeRcp]
+  const rcpResults = result?.results ?? {}
+  const rcpList = Object.keys(rcpResults)
+  const [activeRcp, setActiveRcp] = useState(rcpList[0] ?? null)
+
+  useEffect(() => {
+    if (!activeRcp || !rcpResults[activeRcp]) setActiveRcp(rcpList[0] ?? null)
+  }, [activeRcp, rcpList, rcpResults])
+
+  if (rcpList.length === 0 || !activeRcp) {
+    return <div className="result-container">No MAE result data is available.</div>
+  }
+
+  const rcpData = rcpResults[activeRcp] ?? {}
   const rcpImgs = result.images?.[activeRcp]
 
   return (
@@ -156,7 +167,7 @@ function MAEResultPanel({ result }) {
 
       <div className="mae-rcp-tabs">
         {rcpList.map((rcp) => {
-          const d = result.results[rcp]
+          const d = rcpResults[rcp]
           return (
             <button
               key={rcp}
@@ -165,14 +176,14 @@ function MAEResultPanel({ result }) {
             >
               <span className="mae-tab-rcp">{rcp}</span>
               <span className={`mae-tab-score ${d.is_anomaly ? 'score-red' : 'score-green'}`}>
-                {d.normalized_score.toFixed(2)}×
+                {(d.normalized_score ?? 0).toFixed(2)}×
               </span>
             </button>
           )
         })}
       </div>
 
-      <SpectrogramGrid rcp={activeRcp} images={rcpImgs} isAnomaly={rcpData.is_anomaly} />
+      <SpectrogramGrid rcp={activeRcp} images={rcpImgs} isAnomaly={!!rcpData.is_anomaly} />
 
       <div className="mae-detail-row">
         <div className="prob-list" style={{ flex: 1 }}>
@@ -181,14 +192,14 @@ function MAEResultPanel({ result }) {
             <div className="prob-info">
               <span>원시 점수 / 임계값</span>
               <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                {rcpData.score.toFixed(6)} / {rcpData.threshold.toFixed(6)}
+                {(rcpData.score ?? 0).toFixed(6)} / {(rcpData.threshold ?? 0).toFixed(6)}
               </span>
             </div>
           </div>
           <div className="prob-row">
             <div className="prob-info">
               <span>진폭 (mil)</span>
-              <strong>{rcpData.amplitude_mil.toFixed(3)}</strong>
+              <strong>{(rcpData.amplitude_mil ?? 0).toFixed(3)}</strong>
             </div>
           </div>
         </div>

@@ -43,10 +43,16 @@ function App() {
 
   useEffect(() => {
     async function init() {
-      const result = await window.api.checkSession()
-      if (result.isLoggedIn) {
-        setIsLoggedIn(true)
-        setUser(result.user)
+      try {
+        const result = await window.api.checkSession()
+        if (result.isLoggedIn) {
+          setIsLoggedIn(true)
+          setUser(result.user)
+        }
+      } catch (err) {
+        console.error('[App] Session check failed:', err)
+        setIsLoggedIn(false)
+        setUser(null)
       }
     }
     init()
@@ -58,9 +64,14 @@ function App() {
   }
 
   const handleLogout = async () => {
-    await window.api.logout()
-    setIsLoggedIn(false)
-    setUser(null)
+    try {
+      await window.api.logout()
+    } catch (err) {
+      console.error('[App] Logout failed:', err)
+    } finally {
+      setIsLoggedIn(false)
+      setUser(null)
+    }
   }
 
   if (!isLoggedIn) {

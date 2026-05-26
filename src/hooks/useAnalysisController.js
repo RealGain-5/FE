@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useConcurrencySelector } from './useConcurrencySelector'
 
 /**
@@ -41,12 +41,12 @@ export function useAnalysisController({
       const p = await window.api.selectBinFile()
       if (p) { setBinPath(p); setResult(null); setError(null) }
     } catch (err) {
-      setError(`파일 선택 오류: ${err.message}`)
+      setError(`?뚯씪 ?좏깮 ?ㅻ쪟: ${err.message}`)
     }
   }
 
   const handleRunSingle = async () => {
-    if (!binPath) { setError('먼저 BIN 파일을 선택해주세요.'); return }
+    if (!binPath) { setError('癒쇱? BIN ?뚯씪???좏깮?댁＜?몄슂.'); return }
     setLoading(true); setResult(null); setError(null)
     try {
       const response = await apiRunSingle(binPath)
@@ -57,7 +57,7 @@ export function useAnalysisController({
         setError(response.error)
       }
     } catch (e) {
-      setError(`분석 오류: ${e.message}`)
+      setError(`遺꾩꽍 ?ㅻ쪟: ${e.message}`)
     } finally {
       setLoading(false)
     }
@@ -67,17 +67,16 @@ export function useAnalysisController({
     try {
       const paths = await window.api.selectBinFiles()
       if (paths && paths.length > 0) {
-        // I-6: 전체 batchFiles 기준으로 중복 체크 — completed/failed 결과 유지하며 append
-        const existingPaths = new Set(batchFiles.map(f => f.path))
-        const newPaths = paths.filter(p => !existingPaths.has(p))
-        const newFiles = newPaths.map(path => ({ path, status: 'pending', result: null, error: null }))
-        setBatchFiles(prev => [...prev, ...newFiles])
-        if (newPaths.length < paths.length) {
-          alert(`${paths.length - newPaths.length}개의 중복 파일이 제외되었습니다.`)
-        }
+        // I-6: ?꾩껜 batchFiles 湲곗??쇰줈 以묐났 泥댄겕 ??completed/failed 寃곌낵 ?좎??섎ŉ append
+        setBatchFiles(prev => {
+          const existingPaths = new Set(prev.map(f => f.path))
+          const newPaths = paths.filter(p => !existingPaths.has(p))
+          const newFiles = newPaths.map(path => ({ path, status: 'pending', result: null, error: null }))
+          return [...prev, ...newFiles]
+        })
       }
     } catch (err) {
-      setError(`파일 선택 오류: ${err.message}`)
+      setError(`?뚯씪 ?좏깮 ?ㅻ쪟: ${err.message}`)
     }
   }
 
@@ -86,17 +85,17 @@ export function useAnalysisController({
   }
 
   const handleRunBatch = async () => {
-    if (batchLoading) return  // C-1: 재진입 방지
-    if (batchFiles.length === 0) { setError('먼저 분석할 파일을 추가해주세요.'); return }
+    if (batchLoading) return  // C-1: ?ъ쭊??諛⑹?
+    if (batchFiles.length === 0) { setError('癒쇱? 遺꾩꽍???뚯씪??異붽??댁＜?몄슂.'); return }
     setBatchLoading(true)
     setError(null)
     setBatchFiles(prev => prev.map(f => ({ ...f, status: 'pending', result: null, error: null })))
     setBatchProgress({ total: batchFiles.length, completed: 0, failed: 0, current: null, running: [], runningCount: 0 })
 
-    offBatchProgress()  // C-1: 이전 리스너 선제 제거 후 재등록
+    offBatchProgress()  // C-1: ?댁쟾 由ъ뒪???좎젣 ?쒓굅 ???щ벑濡?
     onBatchProgress((progress) => {
       setBatchProgress(progress)
-      // C-2: 4개 분기를 단일 setBatchFiles 호출로 통합 (O(N×4) → O(N))
+      // C-2: 4媛?遺꾧린瑜??⑥씪 setBatchFiles ?몄텧濡??듯빀 (O(N횞4) ??O(N))
       setBatchFiles(prev => prev.map(f => {
         if (progress.currentResult !== undefined && f.path === progress.current)
           return { ...f, status: 'completed', result: progress.currentResult }
@@ -113,7 +112,7 @@ export function useAnalysisController({
       const response = await apiRunBatch(paths)
       await onBatchComplete?.(paths, response)
     } catch (err) {
-      setError(`배치 분석 오류: ${err.message}`)
+      setError(`諛곗튂 遺꾩꽍 ?ㅻ쪟: ${err.message}`)
     } finally {
       setBatchLoading(false)
       offBatchProgress()
@@ -121,7 +120,7 @@ export function useAnalysisController({
   }
 
   const handleCancelBatch = async () => {
-    if (!window.confirm('진행 중인 분석을 취소하시겠습니까?')) return
+    if (!window.confirm('吏꾪뻾 以묒씤 遺꾩꽍??痍⑥냼?섏떆寃좎뒿?덇퉴?')) return
     try {
       await apiCancelBatch()
       setBatchLoading(false)

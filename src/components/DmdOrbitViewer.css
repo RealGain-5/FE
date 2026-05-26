@@ -231,6 +231,18 @@
   position: relative;
 }
 
+.dmd-orbit-filter-note {
+  font-size: 0.74rem;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
 .dmd-orbit-grid-wrap {
   overflow-x: auto;
   padding-bottom: 6px;

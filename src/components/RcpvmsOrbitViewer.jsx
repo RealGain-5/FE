@@ -1,22 +1,22 @@
-import React, { useState, useEffect} from 'react'
+﻿import React, { useState, useEffect} from 'react'
 import './ModelInference.css'
 import './DmdOrbitViewer.css'
 import { BatchFileList } from './shared/BatchFileList'
 import { BatchProgressBar } from './shared/BatchProgressBar'
 import { ConcurrencySelector } from './shared/ConcurrencySelector'
-import { OrbitGrid, InfoRow, RcpvmsFileInfoPanel } from './shared/OrbitGrid'
+import { OrbitGrid, RcpvmsFileInfoPanel } from './shared/OrbitGrid'
 import { SubTabNav } from './shared/SubTabNav'
 import { ScaleModeToggle } from './shared/ScaleModeToggle'
+import { DEFAULT_WINDOW_SEC, FilterModeToggle, UserAxisLimInputs, WindowSecInput } from './shared/OrbitControls'
 import { FileOperationFlow } from './shared/FileOperationFlow'
 import { StatusCell } from './shared/StatusCell'
 import { getFileName } from '../utils/fileUtils'
 import { useConcurrencySelector } from '../hooks/useConcurrencySelector'
 
-const DEFAULT_WINDOW_SEC = 1.0
 
 /**
- * 'user' 모드일 때 timeline_user[pos]를 우선 사용하되, null인 위치는 timeline_auto로 대체.
- * timeline_user[pos]가 null 엔트리(비어있는 창)를 포함할 수 있어 window 단위로 병합한다.
+ * 'user' 紐⑤뱶????timeline_user[pos]瑜??곗꽑 ?ъ슜?섎릺, null???꾩튂??timeline_auto濡??泥?
+ * timeline_user[pos]媛 null ?뷀듃由?鍮꾩뼱?덈뒗 李?瑜??ы븿?????덉뼱 window ?⑥쐞濡?蹂묓빀?쒕떎.
  */
 function resolveOrbitData(result, scaleMode) {
   if (!result) return null
@@ -24,8 +24,7 @@ function resolveOrbitData(result, scaleMode) {
     const tusr = result.timeline_user
     const tauto = result.timeline_auto
     if (!tusr) return { ...result, timeline: tauto }
-    // 위치 별로: user timeline이 있으면 사용, 없으면 auto로 대체
-    // 창 단위 병합: user[pos][wi]가 null이면 auto[pos][wi] 사용
+    // ?꾩튂 蹂꾨줈: user timeline???덉쑝硫??ъ슜, ?놁쑝硫?auto濡??泥?    // 李??⑥쐞 蹂묓빀: user[pos][wi]媛 null?대㈃ auto[pos][wi] ?ъ슜
     const merged = {}
     for (const pos of (result.positions ?? Object.keys(tauto ?? {}))) {
       const uImgs = tusr[pos]
@@ -41,61 +40,11 @@ function resolveOrbitData(result, scaleMode) {
   return { ...result, timeline: result[`timeline_${scaleMode}`] ?? result.timeline_auto }
 }
 
-function WindowSecInput({ id, value, onChange, disabled }) {
-  return (
-    <>
-      <label className="dmd-param-label" htmlFor={id}>윈도우</label>
-      <input
-        id={id}
-        type="number"
-        className="dmd-param-input"
-        value={value}
-        min={0.5} max={10} step={0.5}
-        onChange={(e) => onChange(parseFloat(e.target.value) || DEFAULT_WINDOW_SEC)}
-        disabled={disabled}
-      />
-      <span className="dmd-param-hint">초 단위 슬라이딩 윈도우</span>
-    </>
-  )
-}
 
-/**
- * 궤도 별 사용자 스케일 입력.
- * orbits: 표시할 궤도 위치 이름 배열 (예: ['RCPA1', 'RCPB1'])
- * values: { [pos]: string } 형태의 입력값 맵
- * onChange: (pos, value) => void
- */
-function UserAxisLimInputs({ orbits, values, onChange, disabled }) {
-  if (!orbits || orbits.length === 0) return null
-  return (
-    <div className="user-axis-lim-group">
-      <span className="dmd-param-label" style={{ alignSelf: 'flex-start', paddingTop: '2px' }}>스케일</span>
-      <div className="user-axis-lim-fields">
-        {orbits.map((pos) => (
-          <div key={pos} className="user-axis-lim-row">
-            <span className="user-axis-lim-pos">{pos}</span>
-            <input
-              type="number"
-              className="dmd-param-input"
-              style={{ width: '80px' }}
-              value={values[pos] ?? ''}
-              min={0.1} step={0.5}
-              placeholder="mil"
-              onChange={(e) => onChange(pos, e.target.value)}
-              disabled={disabled}
-            />
-          </div>
-        ))}
-        <span className="dmd-param-hint" style={{ alignSelf: 'center' }}>±N mil (비워두면 auto)</span>
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────
-// 배치 결과 항목 (파일 1개 결과 + 접기/펼치기)
-// ─────────────────────────────────────────────
-function BatchResultItem({ file, scaleMode, windowSec }) {
+// ?????????????????????????????????????????????
+// 諛곗튂 寃곌낵 ??ぉ (?뚯씪 1媛?寃곌낵 + ?묎린/?쇱튂湲?
+// ?????????????????????????????????????????????
+function BatchResultItem({ file, scaleMode, filterMode, windowSec }) {
   const [expanded, setExpanded] = useState(true)
   const fileName = getFileName(file.path)
   const res = file.result
@@ -109,7 +58,7 @@ function BatchResultItem({ file, scaleMode, windowSec }) {
       >
         <StatusCell status={file.status} />
         <span className="rcpvms-batch-result-name" title={file.path}>{fileName}</span>
-        {/* completed → res 존재, failed → error 존재, 둘은 상호 배타적 */}
+        {/* completed ??res 議댁옱, failed ??error 議댁옱, ?섏? ?곹샇 諛고???*/}
         {file.status === 'completed' && res && (
           <span className="dmd-result-meta" style={{ marginLeft: 'auto', marginRight: '8px' }}>
             {res.n_windows}w
@@ -121,21 +70,21 @@ function BatchResultItem({ file, scaleMode, windowSec }) {
           </span>
         )}
         {res && (
-          <span className="rcpvms-expand-toggle">{expanded ? '▲' : '▼'}</span>
+          <span className="rcpvms-expand-toggle">{expanded ? '-' : '+'}</span>
         )}
       </div>
       {expanded && res && (
         <div className="rcpvms-batch-orbit-wrap">
-          <OrbitGrid data={orbitData} binPath={file.path} windowSec={windowSec} scaleMode={scaleMode} />
+          <OrbitGrid data={orbitData} binPath={file.path} windowSec={windowSec} scaleMode={scaleMode} filterMode={filterMode} />
         </div>
       )}
     </div>
   )
 }
 
-// ─────────────────────────────────────────────
-// 탭 1: 단일 파일 모드
-// ─────────────────────────────────────────────
+// ?????????????????????????????????????????????
+// ??1: ?⑥씪 ?뚯씪 紐⑤뱶
+// ?????????????????????????????????????????????
 function SingleFileTab() {
   const [binPath, setBinPath]               = useState(null)
   const [fileInfo, setFileInfo]             = useState(null)
@@ -146,6 +95,7 @@ function SingleFileTab() {
   const [windowSec, setWindowSec]           = useState(DEFAULT_WINDOW_SEC)
   const [userAxisLimMap, setUserAxisLimMap] = useState({})  // { pos: string }
   const [scaleMode, setScaleMode]           = useState('auto')
+  const [filterMode, setFilterMode]         = useState('1x')
 
   const handleSelectFile = async () => {
     const filePath = await window.api.selectBinFile()
@@ -178,7 +128,7 @@ function SingleFileTab() {
     setError(null)
     setAnalyzing(true)
     try {
-      // 유효한 양수 값만 맵에 포함
+      // ?좏슚???묒닔 媛믩쭔 留듭뿉 ?ы븿
       const ualMap = {}
       for (const [pos, val] of Object.entries(userAxisLimMap)) {
         const n = parseFloat(val)
@@ -190,7 +140,7 @@ function SingleFileTab() {
       )
       if (!res.success) throw new Error(res.error)
       setResult(res.data)
-      // user scale이 생성된 경우 자동으로 user 모드로 전환
+      // user scale???앹꽦??寃쎌슦 ?먮룞?쇰줈 user 紐⑤뱶濡??꾪솚
       if (res.data?.user_axis_lim_map) setScaleMode('user')
     } catch (err) {
       setError(err.message)
@@ -203,8 +153,8 @@ function SingleFileTab() {
 
   return (
     <FileOperationFlow
-      filePickerLabel="BIN 파일 선택"
-      filePlaceholderText="RCPVMS .BIN 파일을 선택해주세요."
+      filePickerLabel="BIN ?뚯씪 ?좏깮"
+      filePlaceholderText="RCPVMS .BIN ?뚯씪???좏깮?댁＜?몄슂."
       filePath={binPath}
       onSelectFile={handleSelectFile}
       pickerDisabled={loading || analyzing}
@@ -230,8 +180,8 @@ function SingleFileTab() {
       onRun={handleRunOrbit}
       canRun={fileInfo?.has_orbit && !loading && !analyzing}
       analyzing={analyzing}
-      actionLabel="궤도 이미지 생성"
-      analyzingLabel="궤도 생성 중"
+      actionLabel="Generate orbit images"
+      analyzingLabel="Generating orbit images"
       error={error}
       result={result}
       renderResult={(res) => {
@@ -240,28 +190,31 @@ function SingleFileTab() {
         const userScaleLabel = ualMap
           ? Object.entries(ualMap)
               .filter(([, v]) => v != null)
-              .map(([pos, v]) => `${pos}:±${Number(v).toFixed(1)}`)
+              .map(([pos, v]) => `${pos}:짹${Number(v).toFixed(1)}`)
               .join(' ')
           : null
         return (
           <div className="result-container">
             <div className="dmd-result-header">
               <span className="dmd-result-meta">
-                {res.n_windows}개 윈도우 · {res.window_sec}초 단위
+                {res.n_windows}媛??덈룄??쨌 {res.window_sec}珥??⑥쐞
                 {scaleMode === 'user' && userScaleLabel
-                  ? ` · User [${userScaleLabel}] mil`
+                  ? ` 쨌 User [${userScaleLabel}] mil`
                   : scaleMode === 'fixed'
-                  ? ` · Fixed ±${res.fixed_axis_lim?.toFixed(1)} mil`
-                  : ' · Auto Scale'}
-                {res.event_date && ` · ${res.event_date}`}
+                  ? ` 쨌 Fixed 짹${res.fixed_axis_lim?.toFixed(1)} mil`
+                  : ' 쨌 Auto Scale'}
+                {res.event_date && ` 쨌 ${res.event_date}`}
               </span>
-              <ScaleModeToggle
-                scaleMode={scaleMode}
-                onChange={setScaleMode}
-                hasUser={!!res.user_axis_lim_map}
-              />
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <FilterModeToggle filterMode={filterMode} onChange={setFilterMode} />
+                <ScaleModeToggle
+                  scaleMode={scaleMode}
+                  onChange={setScaleMode}
+                  hasUser={!!res.user_axis_lim_map}
+                />
+              </div>
             </div>
-            <OrbitGrid data={orbitData} binPath={binPath} windowSec={windowSec} scaleMode={scaleMode} />
+            <OrbitGrid data={orbitData} binPath={binPath} windowSec={windowSec} scaleMode={scaleMode} filterMode={filterMode} />
           </div>
         )
       }}
@@ -269,9 +222,9 @@ function SingleFileTab() {
   )
 }
 
-// ─────────────────────────────────────────────
-// 탭 2: 배치 분석 모드
-// ─────────────────────────────────────────────
+// ?????????????????????????????????????????????
+// ??2: 諛곗튂 遺꾩꽍 紐⑤뱶
+// ?????????????????????????????????????????????
 function BatchTab() {
   const [files, setFiles]               = useState([])   // [{path, status, result, error}]
   const [batchLoading, setBatchLoading] = useState(false)
@@ -280,10 +233,12 @@ function BatchTab() {
   const [userAxisLimMap, setUserAxisLimMap] = useState({})  // { pos: string }
   const { level: concurrency, handleChange: handleConcurrencyChange } = useConcurrencySelector(2)
   const [scaleMode, setScaleMode]       = useState('auto')
+  const [filterMode, setFilterMode]     = useState('1x')
+  const [error, setError]               = useState(null)
 
-  // 진행 이벤트 수신
-  // BatchTab은 display:none 방식으로 항상 마운트 유지되므로 리스너가 앱 전체 생명주기 동안 등록됨.
-  // 향후 BatchTab을 조건부 마운트로 변경하려면 반드시 C-2 패턴(state 끌어올리기)으로 대체할 것.
+  // 吏꾪뻾 ?대깽???섏떊
+  // BatchTab? display:none 諛⑹떇?쇰줈 ??긽 留덉슫???좎??섎?濡?由ъ뒪?덇? ???꾩껜 ?앸챸二쇨린 ?숈븞 ?깅줉??
+  // ?ν썑 BatchTab??議곌굔遺 留덉슫?몃줈 蹂寃쏀븯?ㅻ㈃ 諛섎뱶??C-2 ?⑦꽩(state ?뚯뼱?щ━湲??쇰줈 ?泥댄븷 寃?
   useEffect(() => {
     window.api.onRcpvmsOrbitBatchProgress((p) => {
       setBatchProgress({
@@ -317,18 +272,28 @@ function BatchTab() {
       }
     })
     return () => window.api.offRcpvmsOrbitBatchProgress()
-  }, []) // 의도적 빈 dep: BatchTab은 앱 생명주기 동안 마운트 유지, 리스너는 1회만 등록
+  }, []) // ?섎룄??鍮?dep: BatchTab? ???앸챸二쇨린 ?숈븞 留덉슫???좎?, 由ъ뒪?덈뒗 1?뚮쭔 ?깅줉
 
   const handleSelectFiles = async () => {
-    const paths = await window.api.selectBinFiles()
-    if (!paths || paths.length === 0) return
-    addPaths(paths)
+    try {
+      const paths = await window.api.selectBinFiles()
+      if (!paths || paths.length === 0) return
+      setError(null)
+      addPaths(paths)
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   const handleSelectFolder = async () => {
-    const paths = await window.api.selectBinFolder()
-    if (!paths || paths.length === 0) return
-    addPaths(paths)
+    try {
+      const paths = await window.api.selectBinFolder()
+      if (!paths || paths.length === 0) return
+      setError(null)
+      addPaths(paths)
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   const addPaths = (paths) => {
@@ -346,7 +311,7 @@ function BatchTab() {
   }
 
   const handleRunBatch = async () => {
-    if (batchLoading) return  // 재진입 방지
+    if (batchLoading) return  // ?ъ쭊??諛⑹?
     const pendingPaths = files.filter(f => f.status === 'pending' || f.status === 'failed').map(f => f.path)
     if (pendingPaths.length === 0) return
 
@@ -355,6 +320,7 @@ function BatchTab() {
     ))
     setBatchProgress({ total: pendingPaths.length, completed: 0, failed: 0, running: [] })
     setBatchLoading(true)
+    setError(null)
 
     try {
       const ualMap = {}
@@ -366,18 +332,25 @@ function BatchTab() {
         pendingPaths, windowSec,
         Object.keys(ualMap).length > 0 ? ualMap : undefined
       )
+    } catch (err) {
+      setError(err.message)
     } finally {
       setBatchLoading(false)
     }
   }
 
   const handleCancel = async () => {
-    await window.api.cancelRcpvmsOrbitBatch()
+    try {
+      await window.api.cancelRcpvmsOrbitBatch()
+    } catch (err) {
+      setError(err.message)
+    }
   }
 
   const handleClearAll = () => {
     setFiles([])
     setBatchProgress({ total: 0, completed: 0, failed: 0, running: [] })
+    setError(null)
   }
 
   const pendingCount = files.filter(f => f.status === 'pending' || f.status === 'failed').length
@@ -387,29 +360,34 @@ function BatchTab() {
 
   return (
     <div>
-      {/* 파일 선택 버튼들 */}
+      {error && (
+        <div className="error-message" style={{ marginBottom: '0.75rem' }}>
+          {error}
+        </div>
+      )}
+      {/* ?뚯씪 ?좏깮 踰꾪듉??*/}
       <div className="input-group">
         <div className="file-picker-wrapper" style={{ gap: '6px' }}>
           <button onClick={handleSelectFiles} className="btn-file-select" disabled={batchLoading}>
-            파일 선택
+            ?뚯씪 ?좏깮
           </button>
           <button onClick={handleSelectFolder} className="btn-file-select" disabled={batchLoading}
             style={{ background: 'var(--accent-subtle)', borderColor: 'rgba(88,166,255,0.3)' }}>
-            폴더 선택
+            ?대뜑 ?좏깮
           </button>
           {files.length > 0 && !batchLoading && (
             <button onClick={handleClearAll} className="btn-file-select"
               style={{ color: 'var(--text-muted)', background: 'transparent' }}>
-              전체 제거
+              ?꾩껜 ?쒓굅
             </button>
           )}
           <span className="file-path-text">
-            {files.length > 0 ? `${files.length}개 파일 선택됨` : '.BIN 파일 또는 폴더를 선택하세요.'}
+            {files.length > 0 ? `${files.length} file(s) selected` : 'Select .BIN files or a folder.'}
           </span>
         </div>
       </div>
 
-      {/* 설정 행 */}
+      {/* ?ㅼ젙 ??*/}
       {files.length > 0 && (
         <div className="dmd-param-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
           <WindowSecInput
@@ -419,7 +397,7 @@ function BatchTab() {
             disabled={batchLoading}
           />
           <UserAxisLimInputs
-            orbits={['RCPA1', 'RCPA2', 'RCPB1', 'RCPB2']}
+            orbits={['RCP1A', 'RCP1B', 'RCP2A', 'RCP2B']}
             values={userAxisLimMap}
             onChange={(pos, val) => setUserAxisLimMap(prev => ({ ...prev, [pos]: val }))}
             disabled={batchLoading}
@@ -435,7 +413,7 @@ function BatchTab() {
         </div>
       )}
 
-      {/* 실행/취소 버튼 */}
+      {/* ?ㅽ뻾/痍⑥냼 踰꾪듉 */}
       {files.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '0.75rem' }}>
           <button
@@ -443,15 +421,16 @@ function BatchTab() {
             disabled={batchLoading || pendingCount === 0}
             className="btn-run-inference"
           >
-            {batchLoading
-              ? <><span className="btn-spinner" />분석 중...</>
-              : `궤도 생성 (${pendingCount}개)`
-            }
+            {batchLoading ? (
+              <><span className="btn-spinner" />Running...</>
+            ) : (
+              'Generate orbits (' + pendingCount + ')'
+            )}
           </button>
           {batchLoading && (
             <button onClick={handleCancel} className="btn-file-select"
               style={{ color: 'var(--status-anomaly)', borderColor: 'var(--status-anomaly-border)' }}>
-              취소
+              痍⑥냼
             </button>
           )}
         </div>
@@ -463,7 +442,7 @@ function BatchTab() {
         </div>
       )}
 
-      {/* 파일 목록 (대기/실행 중인 파일) */}
+      {/* ?뚯씪 紐⑸줉 (?湲??ㅽ뻾 以묒씤 ?뚯씪) */}
       {files.some(f => f.status === 'pending' || f.status === 'running') && (
         <BatchFileList
           files={files.filter(f => f.status === 'pending' || f.status === 'running')}
@@ -473,24 +452,27 @@ function BatchTab() {
         />
       )}
 
-      {/* 처리 완료/실패 파일 결과 목록 */}
+      {/* 泥섎━ ?꾨즺/?ㅽ뙣 ?뚯씪 寃곌낵 紐⑸줉 */}
       {finishedFiles.length > 0 && (
         <div style={{ marginTop: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px', gap: '8px' }}>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-              처리 결과 ({finishedFiles.length}개)
+              泥섎━ 寃곌낵 ({finishedFiles.length}媛?
             </span>
             {hasCompletedFile && (
-              <ScaleModeToggle
-                scaleMode={scaleMode}
-                onChange={setScaleMode}
-                hasUser={hasUserTimeline}
-              />
+              <>
+                <FilterModeToggle filterMode={filterMode} onChange={setFilterMode} />
+                <ScaleModeToggle
+                  scaleMode={scaleMode}
+                  onChange={setScaleMode}
+                  hasUser={hasUserTimeline}
+                />
+              </>
             )}
           </div>
           <div className="rcpvms-batch-results">
             {finishedFiles.map(file => (
-              <BatchResultItem key={file.path} file={file} scaleMode={scaleMode} windowSec={windowSec} />
+              <BatchResultItem key={file.path} file={file} scaleMode={scaleMode} filterMode={filterMode} windowSec={windowSec} />
             ))}
           </div>
         </div>
@@ -500,13 +482,13 @@ function BatchTab() {
 }
 
 const SUBTABS = [
-  { key: 'single', label: '단일 파일' },
-  { key: 'batch',  label: '배치 분석' },
+  { key: 'single', label: '?⑥씪 ?뚯씪' },
+  { key: 'batch',  label: '諛곗튂 遺꾩꽍' },
 ]
 
-// ─────────────────────────────────────────────
-// 메인 컴포넌트
-// ─────────────────────────────────────────────
+// ?????????????????????????????????????????????
+// 硫붿씤 而댄룷?뚰듃
+// ?????????????????????????????????????????????
 export function RcpvmsOrbitViewer() {
   const [subTab, setSubTab] = useState('single')
 
@@ -514,14 +496,14 @@ export function RcpvmsOrbitViewer() {
     <div className="model-inference">
       <div className="control-panel">
         <div className="header-row">
-          <h2 className="section-title">RCPVMS 궤도 뷰어</h2>
-          <div className="dmd-model-badge">BIN 궤도 이미지 · 단일 / 배치</div>
+          <h2 className="section-title">RCPVMS 沅ㅻ룄 酉곗뼱</h2>
+          <div className="dmd-model-badge">BIN 沅ㅻ룄 ?대?吏 쨌 ?⑥씪 / 諛곗튂</div>
         </div>
 
         <SubTabNav tabs={SUBTABS} current={subTab} onChange={setSubTab} />
 
         {subTab === 'single' && <SingleFileTab />}
-        {/* C-2: 배치 탭은 항상 마운트 유지 (언마운트 시 이벤트 유실 방지) */}
+        {/* C-2: 諛곗튂 ??? ??긽 留덉슫???좎? (?몃쭏?댄듃 ???대깽???좎떎 諛⑹?) */}
         <div style={{ display: subTab === 'batch' ? 'block' : 'none' }}>
           <BatchTab />
         </div>
